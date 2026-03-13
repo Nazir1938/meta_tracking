@@ -1,5 +1,3 @@
-// lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
@@ -23,13 +21,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLogger.melumat('TETBIQ', 'MyApp widget qurulur');
+    AppLogger.melumat('TƏTBİQ', 'MyApp widget qurulur');
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => AuthBloc()),
         BlocProvider(
           create: (_) {
-            AppLogger.melumat('BLOC', 'ZoneBloc yaradildi');
+            AppLogger.melumat('BLOC', 'ZoneBloc yaradıldı');
             return ZoneBloc()..add(const FetchZonesEvent());
           },
         ),
@@ -43,6 +41,7 @@ class MyApp extends StatelessWidget {
             brightness: Brightness.light,
           ),
           useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFFF5F7FA),
         ),
         home: const SplashScreen(),
       ),
@@ -50,11 +49,10 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// ─── Ana Sehife ───────────────────────────────────────────────────────────────
+// ─── Ana Səhifə ──────────────────────────────────────────────────────────────
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-
   @override
   State<HomePage> createState() => _HomePageState();
 }
@@ -69,17 +67,34 @@ class _HomePageState extends State<HomePage> {
     ProfileScreen(),
   ];
 
-  final List<String> _labels = ['Heyvanlar', 'Xerite', 'Revanlar', 'Profil'];
+  final List<_NavItem> _navItems = const [
+    _NavItem(
+      label: 'Heyvanlar',
+      icon: Icons.pets_outlined,
+      activeIcon: Icons.pets,
+    ),
+    _NavItem(label: 'Xəritə', icon: Icons.map_outlined, activeIcon: Icons.map),
+    _NavItem(
+      label: 'Bildirişlər',
+      icon: Icons.notifications_outlined,
+      activeIcon: Icons.notifications,
+    ),
+    _NavItem(
+      label: 'Profil',
+      icon: Icons.person_outline,
+      activeIcon: Icons.person,
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
-    AppLogger.ekranAcildi('Ana Sehife (HomePage)');
+    AppLogger.ekranAcildi('Ana Səhifə (HomePage)');
   }
 
   @override
   void dispose() {
-    AppLogger.ekranBaglandi('Ana Sehife (HomePage)');
+    AppLogger.ekranBaglandi('Ana Səhifə (HomePage)');
     super.dispose();
   }
 
@@ -87,78 +102,92 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF0A1628),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _navItem(0, Icons.pets_outlined, Icons.pets),
-                _navItem(1, Icons.map_outlined, Icons.map),
-                _navItem(2, Icons.notifications_outlined, Icons.notifications),
-                _navItem(3, Icons.person_outline, Icons.person),
-              ],
-            ),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A1628),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(_navItems.length, (i) {
+              final item = _navItems[i];
+              final isActive = _currentIndex == i;
+              return GestureDetector(
+                onTap: () {
+                  AppLogger.melumat(
+                    'NAVİGASİYA',
+                    'Tab: ${_navItems[_currentIndex].label} -> ${item.label}',
+                  );
+                  setState(() => _currentIndex = i);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isActive ? item.activeIcon : item.icon,
+                        color: isActive
+                            ? const Color(0xFF4CAF50)
+                            : Colors.white.withValues(alpha: 0.4),
+                        size: 22,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        item.label,
+                        style: TextStyle(
+                          color: isActive
+                              ? const Color(0xFF4CAF50)
+                              : Colors.white.withValues(alpha: 0.4),
+                          fontSize: 10,
+                          fontWeight: isActive
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _navItem(int index, IconData icon, IconData activeIcon) {
-    final isActive = _currentIndex == index;
-    return GestureDetector(
-      onTap: () {
-        AppLogger.melumat(
-          'NAVIGASIYA',
-          'Tab: ${_labels[_currentIndex]} -> ${_labels[index]}',
-        );
-        setState(() => _currentIndex = index);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isActive ? activeIcon : icon,
-              color: isActive
-                  ? const Color(0xFF4CAF50)
-                  : Colors.white.withValues(alpha: 0.4),
-              size: 22,
-            ),
-            const SizedBox(height: 3),
-            Text(
-              _labels[index],
-              style: TextStyle(
-                color: isActive
-                    ? const Color(0xFF4CAF50)
-                    : Colors.white.withValues(alpha: 0.4),
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+class _NavItem {
+  final String label;
+  final IconData icon;
+  final IconData activeIcon;
+  const _NavItem({
+    required this.label,
+    required this.icon,
+    required this.activeIcon,
+  });
 }

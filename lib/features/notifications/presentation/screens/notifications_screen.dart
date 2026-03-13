@@ -1,5 +1,3 @@
-// lib/features/notifications/presentation/screens/notifications_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
 
@@ -10,7 +8,7 @@ class NotificationAlert {
   final String zoneName;
   final String message;
   final DateTime timestamp;
-  final String type; // 'enter', 'exit', 'alert', 'battery'
+  final String type;
   bool isRead;
 
   NotificationAlert({
@@ -35,50 +33,50 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final List<NotificationAlert> _notifications = [
     NotificationAlert(
       id: '1',
-      animalName: 'Qoc-2',
+      animalName: 'Qoç-2',
       animalEmoji: '🐑',
       zoneName: 'Otlaq-1',
       message:
-          'Qoc-2, Otlaq-1 zonasinin hududunu asdi! Indi meseye daxil olub.',
+          'Qoç-2, Otlaq-1 zonasının hüdudunu aşdı! İndi meşəyə daxil olub.',
       timestamp: DateTime.now().subtract(const Duration(minutes: 3)),
       type: 'alert',
     ),
     NotificationAlert(
       id: '2',
-      animalName: 'Alabas-1',
+      animalName: 'Alabaş-1',
       animalEmoji: '🐄',
       zoneName: 'Otlaq-1',
-      message: 'Alabas-1 Otlaq-1 zonasina daxil oldu.',
+      message: 'Alabaş-1 Otlaq-1 zonasına daxil oldu.',
       timestamp: DateTime.now().subtract(const Duration(minutes: 18)),
       type: 'enter',
       isRead: true,
     ),
     NotificationAlert(
       id: '3',
-      animalName: 'Kuheylan',
+      animalName: 'Küheylan',
       animalEmoji: '🐎',
       zoneName: 'Otlaq-2',
-      message: 'Kuheylan Otlaq-2 zonasinin disina cixdi.',
+      message: 'Küheylan Otlaq-2 zonasının xaricinə çıxdı.',
       timestamp: DateTime.now().subtract(const Duration(hours: 1)),
       type: 'exit',
       isRead: true,
     ),
     NotificationAlert(
       id: '4',
-      animalName: 'Kecim-1',
+      animalName: 'Keçim-1',
       animalEmoji: '🐐',
       zoneName: '',
-      message: 'Kecim-1 cihazinin batareyasi azalir: 12%',
+      message: 'Keçim-1 cihazının batareyası azalır: 12%',
       timestamp: DateTime.now().subtract(const Duration(hours: 2)),
       type: 'battery',
       isRead: true,
     ),
     NotificationAlert(
       id: '5',
-      animalName: 'Alabas-1',
+      animalName: 'Alabaş-1',
       animalEmoji: '🐄',
       zoneName: 'Otlaq-1',
-      message: 'Alabas-1 Otlaq-1 zonasinin disina cixdi.',
+      message: 'Alabaş-1 Otlaq-1 zonasının xaricinə çıxdı.',
       timestamp: DateTime.now().subtract(const Duration(hours: 5)),
       type: 'exit',
       isRead: true,
@@ -125,7 +123,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Xeberdarliqlar',
+                  'Xəbərdarlıqlar',
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -135,8 +133,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 Text(
                   _unreadCount > 0
-                      ? '$_unreadCount oxunmamis xeberdarliqi var'
-                      : 'Hamisi oxunub',
+                      ? '$_unreadCount oxunmamış xəbərdarlıq var'
+                      : 'Hamısı oxunub',
                   style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                 ),
               ],
@@ -148,7 +146,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 setState(() {
                   for (var n in _notifications) n.isRead = true;
                 });
-                AppLogger.bildirisEmeliyyati('Hamisi oxundu isarelendi');
+                AppLogger.bildirisEmeliyyati('Hamısı oxundu işarələndi');
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -160,7 +158,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(
-                  'Hamisi oxundu',
+                  'Hamısı oxundu',
                   style: TextStyle(
                     color: Color(0xFF2ECC71),
                     fontSize: 12,
@@ -180,13 +178,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
       child: Row(
         children: [
-          _tab('Hamisi', 'all', null),
+          _tab('Hamısı', 'all', null),
           const SizedBox(width: 8),
           _tab('Alert', 'alert', const Color(0xFFFF4444)),
           const SizedBox(width: 8),
           _tab('Daxil oldu', 'enter', const Color(0xFF2ECC71)),
           const SizedBox(width: 8),
-          _tab('Cixdi', 'exit', const Color(0xFFFF9800)),
+          _tab('Çıxdı', 'exit', const Color(0xFFFF9800)),
           const SizedBox(width: 8),
           _tab('Batareya', 'battery', const Color(0xFF9B59B6)),
         ],
@@ -228,11 +226,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _buildList() {
-    // Tarihe gore grupla
     final today = <NotificationAlert>[];
     final earlier = <NotificationAlert>[];
     final now = DateTime.now();
-
     for (final n in _filtered) {
       if (now.difference(n.timestamp).inHours < 24) {
         today.add(n);
@@ -240,16 +236,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         earlier.add(n);
       }
     }
-
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       children: [
         if (today.isNotEmpty) ...[
-          _sectionHeader('Bugun'),
+          _sectionHeader('Bugün'),
           ...today.map((n) => _notifCard(n)),
         ],
         if (earlier.isNotEmpty) ...[
-          _sectionHeader('Daha Evvel'),
+          _sectionHeader('Daha Əvvəl'),
           ...earlier.map((n) => _notifCard(n)),
         ],
       ],
@@ -281,11 +276,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       key: Key(n.id),
       direction: DismissDirection.endToStart,
       onDismissed: (_) {
-        AppLogger.bildirisEmeliyyati('Xeberdarliqs silindi: ${n.id}');
+        AppLogger.bildirisEmeliyyati('Xəbərdarlıq silindi: ${n.id}');
         setState(() => _notifications.remove(n));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Xeberdarliqs silindi'),
+            content: const Text('Xəbərdarlıq silindi'),
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
               label: 'Geri Al',
@@ -335,7 +330,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Sol ikon
               Container(
                 width: 46,
                 height: 46,
@@ -369,7 +363,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              // Metn
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,10 +454,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         const Spacer(),
                         GestureDetector(
                           onTap: () => AppLogger.bildirisEmeliyyati(
-                            'Xeritede goster: ${n.id}',
+                            'Xəritədə göstər: ${n.id}',
                           ),
                           child: Text(
-                            'Xeritede bax',
+                            'Xəritədə bax',
                             style: TextStyle(
                               fontSize: 11,
                               color: color,
@@ -503,7 +496,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Xeberdarliqs yoxdur',
+            'Xəbərdarlıq yoxdur',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -527,7 +520,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return {
           'color': const Color(0xFFFF9800),
           'icon': Icons.logout_rounded,
-          'label': 'CIXDI',
+          'label': 'ÇIXDI',
         };
       case 'alert':
         return {
@@ -545,16 +538,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return {
           'color': Colors.grey,
           'icon': Icons.info_outline,
-          'label': 'MELUMAT',
+          'label': 'MƏLUMAT',
         };
     }
   }
 
   String _formatTime(DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'Indi';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} deq evvel';
-    if (diff.inHours < 24) return '${diff.inHours} saat evvel';
-    return '${diff.inDays} gun evvel';
+    if (diff.inMinutes < 1) return 'İndi';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} dəq əvvəl';
+    if (diff.inHours < 24) return '${diff.inHours} saat əvvəl';
+    return '${diff.inDays} gün əvvəl';
   }
 }

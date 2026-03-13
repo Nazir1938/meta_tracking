@@ -5,11 +5,9 @@ import 'package:meta_tracking/features/zones/domain/entities/zone.dart';
 import 'package:meta_tracking/features/zones/domain/services/geofencing_service.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
 
-// --- Hadiseler ---------------------------------------------------------------
-
+// ─── Events ──────────────────────────────────────────────────────────────────
 abstract class ZoneEvent extends Equatable {
   const ZoneEvent();
-
   @override
   List<Object?> get props => [];
 }
@@ -17,7 +15,6 @@ abstract class ZoneEvent extends Equatable {
 class CreateZoneEvent extends ZoneEvent {
   final ZoneEntity zone;
   const CreateZoneEvent(this.zone);
-
   @override
   List<Object?> get props => [zone];
 }
@@ -29,7 +26,6 @@ class FetchZonesEvent extends ZoneEvent {
 class DeleteZoneEvent extends ZoneEvent {
   final String zoneId;
   const DeleteZoneEvent(this.zoneId);
-
   @override
   List<Object?> get props => [zoneId];
 }
@@ -37,7 +33,6 @@ class DeleteZoneEvent extends ZoneEvent {
 class UpdateZoneEvent extends ZoneEvent {
   final ZoneEntity zone;
   const UpdateZoneEvent(this.zone);
-
   @override
   List<Object?> get props => [zone];
 }
@@ -45,16 +40,13 @@ class UpdateZoneEvent extends ZoneEvent {
 class CheckAnimalInZoneEvent extends ZoneEvent {
   final AnimalLocationEntity location;
   const CheckAnimalInZoneEvent(this.location);
-
   @override
   List<Object?> get props => [location];
 }
 
-// --- Veziyyetler -------------------------------------------------------------
-
+// ─── States ──────────────────────────────────────────────────────────────────
 abstract class ZoneState extends Equatable {
   const ZoneState();
-
   @override
   List<Object?> get props => [];
 }
@@ -70,7 +62,6 @@ class ZoneLoading extends ZoneState {
 class ZonesLoaded extends ZoneState {
   final List<ZoneEntity> zones;
   const ZonesLoaded(this.zones);
-
   @override
   List<Object?> get props => [zones];
 }
@@ -78,7 +69,6 @@ class ZonesLoaded extends ZoneState {
 class ZoneCreated extends ZoneState {
   final ZoneEntity zone;
   const ZoneCreated(this.zone);
-
   @override
   List<Object?> get props => [zone];
 }
@@ -87,9 +77,7 @@ class AnimalLocationChecked extends ZoneState {
   final AnimalLocationEntity location;
   final Map<String, dynamic> zoneInfo;
   final List<ZoneEntity> relevantZones;
-
   const AnimalLocationChecked(this.location, this.zoneInfo, this.relevantZones);
-
   @override
   List<Object?> get props => [location, zoneInfo, relevantZones];
 }
@@ -97,19 +85,16 @@ class AnimalLocationChecked extends ZoneState {
 class ZoneError extends ZoneState {
   final String message;
   const ZoneError(this.message);
-
   @override
   List<Object?> get props => [message];
 }
 
-// --- BLoC --------------------------------------------------------------------
-
+// ─── BLoC ────────────────────────────────────────────────────────────────────
 class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
   final List<ZoneEntity> _zones = [];
 
   ZoneBloc() : super(const ZoneInitial()) {
-    AppLogger.melumat('ZONE BLOC', 'ZoneBloc ise salindi');
-
+    AppLogger.melumat('ZONE BLOC', 'ZoneBloc işə salındı');
     on<CreateZoneEvent>(_onCreateZone);
     on<FetchZonesEvent>(_onFetchZones);
     on<DeleteZoneEvent>(_onDeleteZone);
@@ -123,7 +108,7 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
   ) async {
     AppLogger.blocHadise('ZoneBloc', 'CreateZoneEvent');
     AppLogger.zonaEmeliyyati(
-      'Zona yaradilir',
+      'Zona yaradılır',
       event.zone.name,
       data: 'Radius: ${event.zone.radiusInMeters}m',
     );
@@ -132,18 +117,18 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
       _zones.add(event.zone);
       AppLogger.ugur(
         'ZONE BLOC',
-        '"${event.zone.name}" zonasi ugurla yaradildi. Cemi zona: ${_zones.length}',
+        '"${event.zone.name}" zonası uğurla yaradıldı. Cəmi zona: ${_zones.length}',
       );
       emit(ZoneCreated(event.zone));
       emit(ZonesLoaded(List.from(_zones)));
     } catch (e, stack) {
       AppLogger.xeta(
         'ZONE BLOC',
-        'Zona yaratma ugursuz oldu',
+        'Zona yaratma uğursuz oldu',
         xetaObyekti: e,
         yiginIzi: stack,
       );
-      emit(ZoneError('Zona yaratma ugursuz oldu: $e'));
+      emit(ZoneError('Zona yaratma uğursuz oldu: $e'));
     }
   }
 
@@ -154,20 +139,16 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
     AppLogger.blocHadise('ZoneBloc', 'FetchZonesEvent');
     try {
       emit(const ZoneLoading());
-      AppLogger.melumat(
-        'ZONE BLOC',
-        'Zonalar yuklenir. Movcud zona sayi: ${_zones.length}',
-      );
       emit(ZonesLoaded(List.from(_zones)));
-      AppLogger.ugur('ZONE BLOC', 'Zonalar ugurla yuklendi');
+      AppLogger.ugur('ZONE BLOC', 'Zonalar uğurla yükləndi');
     } catch (e, stack) {
       AppLogger.xeta(
         'ZONE BLOC',
-        'Zonalari yuklemek ugursuz oldu',
+        'Zonaları yükləmək uğursuz oldu',
         xetaObyekti: e,
         yiginIzi: stack,
       );
-      emit(ZoneError('Zonalari yuklemek ugursuz oldu: $e'));
+      emit(ZoneError('Zonaları yükləmək uğursuz oldu: $e'));
     }
   }
 
@@ -176,30 +157,29 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
     Emitter<ZoneState> emit,
   ) async {
     AppLogger.blocHadise('ZoneBloc', 'DeleteZoneEvent');
-    AppLogger.zonaEmeliyyati('Zona silinir', 'ID: ${event.zoneId}');
     try {
       final oncekiSay = _zones.length;
       _zones.removeWhere((zone) => zone.id == event.zoneId);
       if (_zones.length < oncekiSay) {
         AppLogger.ugur(
           'ZONE BLOC',
-          'Zona silindi. Qalan zona sayi: ${_zones.length}',
+          'Zona silindi. Qalan zona sayı: ${_zones.length}',
         );
       } else {
         AppLogger.xeberdarliq(
           'ZONE BLOC',
-          'Silinecek zona tapilmadi. ID: ${event.zoneId}',
+          'Silinəcək zona tapılmadı. ID: ${event.zoneId}',
         );
       }
       emit(ZonesLoaded(List.from(_zones)));
     } catch (e, stack) {
       AppLogger.xeta(
         'ZONE BLOC',
-        'Zona silme ugursuz oldu',
+        'Zona silmə uğursuz oldu',
         xetaObyekti: e,
         yiginIzi: stack,
       );
-      emit(ZoneError('Zona silme ugursuz oldu: $e'));
+      emit(ZoneError('Zona silmə uğursuz oldu: $e'));
     }
   }
 
@@ -208,30 +188,29 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
     Emitter<ZoneState> emit,
   ) async {
     AppLogger.blocHadise('ZoneBloc', 'UpdateZoneEvent');
-    AppLogger.zonaEmeliyyati('Zona yenilenir', event.zone.name);
     try {
       final index = _zones.indexWhere((z) => z.id == event.zone.id);
       if (index != -1) {
         _zones[index] = event.zone;
         AppLogger.ugur(
           'ZONE BLOC',
-          '"${event.zone.name}" zonasi ugurla yenilendi',
+          '"${event.zone.name}" zonası uğurla yeniləndi',
         );
       } else {
         AppLogger.xeberdarliq(
           'ZONE BLOC',
-          'Yenilenecek zona tapilmadi. ID: ${event.zone.id}',
+          'Yenilənəcək zona tapılmadı. ID: ${event.zone.id}',
         );
       }
       emit(ZonesLoaded(List.from(_zones)));
     } catch (e, stack) {
       AppLogger.xeta(
         'ZONE BLOC',
-        'Zona yenilemesi ugursuz oldu',
+        'Zona yeniləməsi uğursuz oldu',
         xetaObyekti: e,
         yiginIzi: stack,
       );
-      emit(ZoneError('Zona yenilemesi ugursuz oldu: $e'));
+      emit(ZoneError('Zona yeniləməsi uğursuz oldu: $e'));
     }
   }
 
@@ -240,14 +219,8 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
     Emitter<ZoneState> emit,
   ) async {
     AppLogger.blocHadise('ZoneBloc', 'CheckAnimalInZoneEvent');
-    AppLogger.melumat(
-      'ZONE BLOC',
-      '"${event.location.animalName}" heyvaninin zona veziyyeti yoxlanilir',
-    );
     try {
       final aktivZonalar = _zones.where((z) => z.isActive).toList();
-      AppLogger.debug('ZONE BLOC', 'Aktiv zona sayi: ${aktivZonalar.length}');
-
       final yenilenmisMovqe = GeofencingService.updateAnimalStatus(
         event.location,
         aktivZonalar,
@@ -256,7 +229,7 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
       if (yenilenmisMovqe.status != event.location.status) {
         AppLogger.geofenceHadise(
           event.location.animalName,
-          yenilenmisMovqe.zoneId ?? 'Namelum zona',
+          yenilenmisMovqe.zoneId ?? 'Naməlum zona',
           yenilenmisMovqe.status == AnimalStatus.inside,
         );
       }
@@ -268,20 +241,15 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
             )
           : <String, dynamic>{};
 
-      AppLogger.ugur(
-        'ZONE BLOC',
-        '"${event.location.animalName}" veziyyeti: ${yenilenmisMovqe.status.name}',
-      );
-
       emit(AnimalLocationChecked(yenilenmisMovqe, zonaInfo, aktivZonalar));
     } catch (e, stack) {
       AppLogger.xeta(
         'ZONE BLOC',
-        'Movqe yoxlamasi ugursuz oldu',
+        'Mövqe yoxlaması uğursuz oldu',
         xetaObyekti: e,
         yiginIzi: stack,
       );
-      emit(ZoneError('Movqe yoxlamasi ugursuz oldu: $e'));
+      emit(ZoneError('Mövqe yoxlaması uğursuz oldu: $e'));
     }
   }
 }

@@ -8,10 +8,10 @@ class AnimalLocationEntity extends Equatable {
   final double latitude;
   final double longitude;
   final DateTime timestamp;
-  final double speed; // km/h
-  final double accuracy; // metres
+  final double speed;
+  final double accuracy;
   final AnimalStatus status;
-  final String? zoneId; // Əgər məsuliyyətdədirsə
+  final String? zoneId;
 
   const AnimalLocationEntity({
     required this.animalId,
@@ -61,44 +61,4 @@ class AnimalLocationEntity extends Equatable {
       zoneId: zoneId ?? this.zoneId,
     );
   }
-}
-
-class GeofenceAlertEntity extends Equatable {
-  final String id;
-  final String animalId;
-  final String animalName;
-  final String zoneId;
-  final String zoneName;
-  final double latitude;
-  final double longitude;
-  final DateTime timestamp;
-  final String message; // "Inside zone" / "Outside zone" / "Speed alert"
-  final bool isRead;
-
-  const GeofenceAlertEntity({
-    required this.id,
-    required this.animalId,
-    required this.animalName,
-    required this.zoneId,
-    required this.zoneName,
-    required this.latitude,
-    required this.longitude,
-    required this.timestamp,
-    required this.message,
-    this.isRead = false,
-  });
-
-  @override
-  List<Object?> get props => [
-    id,
-    animalId,
-    animalName,
-    zoneId,
-    zoneName,
-    latitude,
-    longitude,
-    timestamp,
-    message,
-    isRead,
-  ];
 }

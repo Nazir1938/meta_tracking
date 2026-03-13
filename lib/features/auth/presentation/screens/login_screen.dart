@@ -1,5 +1,3 @@
-// lib/features/auth/presentation/screens/login_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
@@ -9,7 +7,6 @@ import 'package:meta_tracking/main.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -24,7 +21,6 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _bgController;
   late AnimationController _cardController;
   late AnimationController _shakeController;
-
   late Animation<double> _cardSlide;
   late Animation<double> _cardOpacity;
   late Animation<double> _shakeAnim;
@@ -39,25 +35,23 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat(reverse: true);
-
     _cardController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
 
     _bgWave = CurvedAnimation(parent: _bgController, curve: Curves.easeInOut);
-
     _cardSlide = Tween<double>(begin: 60.0, end: 0.0).animate(
       CurvedAnimation(parent: _cardController, curve: Curves.easeOutCubic),
     );
-    _cardOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _cardController, curve: Curves.easeIn),
-    );
+    _cardOpacity = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _cardController, curve: Curves.easeIn));
     _shakeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
     );
@@ -80,11 +74,13 @@ class _LoginScreenState extends State<LoginScreen>
       _shakeController.forward(from: 0);
       return;
     }
-    AppLogger.melumat('LOGIN', 'Login formu gonderidir');
-    context.read<AuthBloc>().add(LoginEvent(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        ));
+    AppLogger.melumat('LOGIN', 'Login formu göndərilir');
+    context.read<AuthBloc>().add(
+      LoginEvent(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      ),
+    );
   }
 
   @override
@@ -92,13 +88,12 @@ class _LoginScreenState extends State<LoginScreen>
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          AppLogger.ugur('LOGIN', 'Login OK -> Ana sehife');
-          Navigator.of(context).pushAndRemoveUntil(
-            _slideRoute(const HomePage()),
-            (_) => false,
-          );
+          AppLogger.ugur('LOGIN', 'Login OK -> Ana səhifə');
+          Navigator.of(
+            context,
+          ).pushAndRemoveUntil(_slideRoute(const HomePage()), (_) => false);
         } else if (state is AuthError) {
-          AppLogger.xeberdarliq('LOGIN', 'Login xetasi: ${state.message}');
+          AppLogger.xeberdarliq('LOGIN', 'Login xətası: ${state.message}');
           _shakeController.forward(from: 0);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -106,7 +101,8 @@ class _LoginScreenState extends State<LoginScreen>
               backgroundColor: Colors.red[700],
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         }
@@ -114,47 +110,42 @@ class _LoginScreenState extends State<LoginScreen>
       child: Scaffold(
         body: AnimatedBuilder(
           animation: _bgWave,
-          builder: (context, child) {
-            return Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color.lerp(
-                      const Color(0xFF0A1628),
-                      const Color(0xFF0D2818),
-                      _bgWave.value,
-                    )!,
-                    Color.lerp(
-                      const Color(0xFF0D2818),
-                      const Color(0xFF1A3A2A),
-                      _bgWave.value,
-                    )!,
-                    Color.lerp(
-                      const Color(0xFF1A3A1A),
-                      const Color(0xFF0A2010),
-                      _bgWave.value,
-                    )!,
-                  ],
-                ),
+          builder: (context, child) => Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.lerp(
+                    const Color(0xFF0A1628),
+                    const Color(0xFF0D2818),
+                    _bgWave.value,
+                  )!,
+                  Color.lerp(
+                    const Color(0xFF0D2818),
+                    const Color(0xFF1A3A2A),
+                    _bgWave.value,
+                  )!,
+                  Color.lerp(
+                    const Color(0xFF1A3A1A),
+                    const Color(0xFF0A2010),
+                    _bgWave.value,
+                  )!,
+                ],
               ),
-              child: child,
-            );
-          },
+            ),
+            child: child,
+          ),
           child: SafeArea(
             child: SingleChildScrollView(
               child: SizedBox(
-                height: MediaQuery.of(context).size.height -
+                height:
+                    MediaQuery.of(context).size.height -
                     MediaQuery.of(context).padding.top,
                 child: Column(
                   children: [
-                    // Ust header
                     _buildHeader(),
-
                     const Spacer(),
-
-                    // Login karti
                     AnimatedBuilder(
                       animation: _cardController,
                       builder: (_, child) => Transform.translate(
@@ -166,7 +157,6 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       child: _buildLoginCard(),
                     ),
-
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -183,7 +173,6 @@ class _LoginScreenState extends State<LoginScreen>
       padding: const EdgeInsets.only(top: 60, bottom: 20),
       child: Column(
         children: [
-          // Logo
           Container(
             width: 90,
             height: 90,
@@ -208,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen>
               colors: [Color(0xFF81C784), Color(0xFF4CAF50)],
             ).createShader(bounds),
             child: const Text(
-              'XOSH GELDINIZ',
+              'XOŞ GƏLDİNİZ',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w900,
@@ -219,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            'Heyvan izleme sistemine daxil olun',
+            'Heyvan izləmə sisteminə daxil olun',
             style: TextStyle(
               fontSize: 13,
               color: Colors.white.withValues(alpha: 0.5),
@@ -238,10 +227,7 @@ class _LoginScreenState extends State<LoginScreen>
         final shake = _shakeController.isAnimating
             ? (4.0 * (0.5 - (_shakeAnim.value - 0.5).abs()) * 2)
             : 0.0;
-        return Transform.translate(
-          offset: Offset(shake, 0),
-          child: child,
-        );
+        return Transform.translate(offset: Offset(shake, 0), child: child);
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -249,10 +235,7 @@ class _LoginScreenState extends State<LoginScreen>
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.3),
@@ -266,7 +249,6 @@ class _LoginScreenState extends State<LoginScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Email
               _buildInputField(
                 controller: _emailController,
                 label: 'Email',
@@ -274,17 +256,14 @@ class _LoginScreenState extends State<LoginScreen>
                 keyboardType: TextInputType.emailAddress,
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Email daxil edin';
-                  if (!v.contains('@')) return 'Duzgun email daxil edin';
+                  if (!v.contains('@')) return 'Düzgün email daxil edin';
                   return null;
                 },
               ),
-
               const SizedBox(height: 16),
-
-              // Sifre
               _buildInputField(
                 controller: _passwordController,
-                label: 'Sifre',
+                label: 'Şifrə',
                 icon: Icons.lock_outline,
                 obscureText: !_passwordVisible,
                 suffixIcon: IconButton(
@@ -299,30 +278,23 @@ class _LoginScreenState extends State<LoginScreen>
                       setState(() => _passwordVisible = !_passwordVisible),
                 ),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'Sifre daxil edin';
-                  if (v.length < 6) return 'Sifre en az 6 xanerden ibaret olmalidir';
+                  if (v == null || v.isEmpty) return 'Şifrə daxil edin';
+                  if (v.length < 6)
+                    return 'Şifrə ən az 6 xanədən ibarət olmalıdır';
                   return null;
                 },
               ),
-
               const SizedBox(height: 28),
-
-              // Login butonu
               BlocBuilder<AuthBloc, AuthState>(
-                builder: (context, state) {
-                  final isLoading = state is AuthLoading;
-                  return _buildLoginButton(isLoading);
-                },
+                builder: (context, state) =>
+                    _buildLoginButton(state is AuthLoading),
               ),
-
               const SizedBox(height: 20),
-
-              // Qeydiyyat linki
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Hesabiniz yoxdur? ',
+                    'Hesabınız yoxdur? ',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 13,
@@ -330,10 +302,10 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   GestureDetector(
                     onTap: () {
-                      AppLogger.melumat('LOGIN', 'Register sehifesine kecid');
-                      Navigator.of(context).push(
-                        _slideRoute(const RegisterScreen()),
-                      );
+                      AppLogger.melumat('LOGIN', 'Register səhifəsinə keçid');
+                      Navigator.of(
+                        context,
+                      ).push(_slideRoute(const RegisterScreen()));
                     },
                     child: const Text(
                       'Qeydiyyat',
@@ -346,13 +318,12 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                 ],
               ),
-
               const SizedBox(height: 16),
-
-              // Demo hint
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF4CAF50).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
@@ -362,17 +333,18 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline,
-                        size: 14,
-                        color: const Color(0xFF4CAF50).withValues(alpha: 0.7)),
+                    Icon(
+                      Icons.info_outline,
+                      size: 14,
+                      color: const Color(0xFF4CAF50).withValues(alpha: 0.7),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Demo: demo@meta.az / 123456',
                         style: TextStyle(
                           fontSize: 11,
-                          color:
-                              const Color(0xFF81C784).withValues(alpha: 0.8),
+                          color: const Color(0xFF81C784).withValues(alpha: 0.8),
                         ),
                       ),
                     ),
@@ -428,8 +400,10 @@ class _LoginScreenState extends State<LoginScreen>
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.05),
         errorStyle: const TextStyle(fontSize: 11),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
     );
   }
@@ -485,15 +459,13 @@ class _LoginScreenState extends State<LoginScreen>
   Route _slideRoute(Widget page) {
     return PageRouteBuilder(
       pageBuilder: (_, __, ___) => page,
-      transitionsBuilder: (_, animation, __, child) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1.0, 0.0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-          child: child,
-        );
-      },
+      transitionsBuilder: (_, animation, __, child) => SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1.0, 0.0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+        child: child,
+      ),
     );
   }
 }

@@ -1,7 +1,6 @@
-// lib/features/animals/presentation/screens/tracking_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
+import 'package:meta_tracking/features/zones/presentation/screens/map_screen.dart';
 
 enum AnimalType { cattle, sheep, horse, goat, pig, other }
 
@@ -45,7 +44,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   final List<AnimalEntity> _animals = [
     AnimalEntity(
       id: '1',
-      name: 'Alabas-1',
+      name: 'Alabaş-1',
       type: AnimalType.cattle,
       isTracking: true,
       lastLatitude: 40.3686,
@@ -58,7 +57,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     ),
     AnimalEntity(
       id: '2',
-      name: 'Qoc-2',
+      name: 'Qoç-2',
       type: AnimalType.sheep,
       isTracking: true,
       lastLatitude: 40.3700,
@@ -71,7 +70,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     ),
     AnimalEntity(
       id: '3',
-      name: 'Kuheylan',
+      name: 'Küheylan',
       type: AnimalType.horse,
       isTracking: true,
       lastLatitude: 40.3720,
@@ -84,7 +83,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     ),
     AnimalEntity(
       id: '4',
-      name: 'Kecim-1',
+      name: 'Keçim-1',
       type: AnimalType.goat,
       isTracking: false,
       lastLatitude: 40.3710,
@@ -96,7 +95,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
     ),
   ];
 
-  bool _isGridView = false;
   String _filterStatus = 'all';
   final Set<String> _selectedIds = {};
   bool _selectMode = false;
@@ -128,40 +126,46 @@ class _TrackingScreenState extends State<TrackingScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            _buildHeader(),
-            _buildSummaryCards(),
-            _buildFilterRow(),
-            Expanded(
-              child: _filtered.isEmpty
-                  ? _buildEmpty()
-                  : _isGridView
-                  ? _buildGrid()
-                  : _buildList(),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                _buildSummaryCards(),
+                _buildFilterRow(),
+                Expanded(
+                  child: _filtered.isEmpty ? _buildEmpty() : _buildList(),
+                ),
+              ],
+            ),
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: _selectedIds.isNotEmpty
+                  ? FloatingActionButton.extended(
+                      heroTag: 'fab_group',
+                      onPressed: _showGroupActions,
+                      backgroundColor: const Color(0xFF2ECC71),
+                      icon: const Icon(Icons.location_on, color: Colors.white),
+                      label: Text(
+                        '${_selectedIds.length} seçildi',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  : FloatingActionButton(
+                      heroTag: 'fab_add',
+                      onPressed: _showAddAnimal,
+                      backgroundColor: const Color(0xFF2ECC71),
+                      child: const Icon(Icons.add, color: Colors.white),
+                    ),
             ),
           ],
         ),
       ),
-      floatingActionButton: _selectedIds.isNotEmpty
-          ? FloatingActionButton.extended(
-              onPressed: _showGroupActions,
-              backgroundColor: const Color(0xFF2ECC71),
-              icon: const Icon(Icons.location_on, color: Colors.white),
-              label: Text(
-                '${_selectedIds.length} secildi',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            )
-          : FloatingActionButton(
-              onPressed: _showAddAnimal,
-              backgroundColor: const Color(0xFF2ECC71),
-              child: const Icon(Icons.add, color: Colors.white),
-            ),
     );
   }
 
@@ -175,7 +179,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Heyvanlarim',
+                  'Heyvanlarım',
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -184,7 +188,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   ),
                 ),
                 Text(
-                  '${_animals.length} heyvan • $_alertCount xeberdarliq',
+                  '${_animals.length} heyvan • $_alertCount xəbərdarlıq',
                   style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                 ),
               ],
@@ -219,7 +223,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
               ),
             ),
           GestureDetector(
-            onTap: () => setState(() => _isGridView = !_isGridView),
+            onTap: () {},
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -233,10 +237,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   ),
                 ],
               ),
-              child: Icon(
-                _isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
+              child: const Icon(
+                Icons.view_list_rounded,
                 size: 20,
-                color: const Color(0xFF1A1A2E),
+                color: Color(0xFF1A1A2E),
               ),
             ),
           ),
@@ -255,7 +259,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
       child: Row(
         children: [
           _summaryCard(
-            'Umumi',
+            'Ümumi',
             '${_animals.length}',
             const Color(0xFF6C63FF),
             Icons.pets_rounded,
@@ -269,7 +273,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
           ),
           const SizedBox(width: 10),
           _summaryCard(
-            'Icerde',
+            'İçərdə',
             '$inside',
             const Color(0xFF3498DB),
             Icons.home_rounded,
@@ -339,7 +343,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
       child: Row(
         children: [
-          _filterChip('Hamisi', 'all'),
+          _filterChip('Hamısı', 'all'),
           const SizedBox(width: 8),
           _filterChip('Aktiv', 'active'),
           const SizedBox(width: 8),
@@ -364,7 +368,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 ),
               ),
               child: Text(
-                _selectMode ? 'Bitir' : 'Sec',
+                _selectMode ? 'Bitir' : 'Seç',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -433,13 +437,14 @@ class _TrackingScreenState extends State<TrackingScreen> {
       onTap: () {
         if (_selectMode) {
           setState(() {
-            if (isSelected)
+            if (isSelected) {
               _selectedIds.remove(animal.id);
-            else
+            } else {
               _selectedIds.add(animal.id);
+            }
           });
         } else {
-          AppLogger.heyvanEmeliyyati('Detala kecid', animal.name);
+          AppLogger.heyvanEmeliyyati('Detala keçid', animal.name);
         }
       },
       child: AnimatedContainer(
@@ -631,7 +636,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              animal.isTracking ? 'Canli' : 'Offline',
+                              animal.isTracking ? 'Canlı' : 'Offline',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
@@ -655,158 +660,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
     );
   }
 
-  Widget _buildGrid() {
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.85,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: _filtered.length,
-      itemBuilder: (_, i) => _animalGridCard(_filtered[i]),
-    );
-  }
-
-  Widget _animalGridCard(AnimalEntity animal) {
-    final statusColor = _statusColor(animal.zoneStatus);
-    final statusLabel = _statusLabel(animal.zoneStatus);
-    final isSelected = _selectedIds.contains(animal.id);
-    return GestureDetector(
-      onTap: () {
-        if (_selectMode) {
-          setState(() {
-            if (isSelected)
-              _selectedIds.remove(animal.id);
-            else
-              _selectedIds.add(animal.id);
-          });
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF2ECC71)
-                : animal.zoneStatus == AnimalZoneStatus.alert
-                ? const Color(0xFFFF4444).withValues(alpha: 0.25)
-                : Colors.transparent,
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: _typeColor(animal.type).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _typeEmoji(animal.type),
-                      style: const TextStyle(fontSize: 22),
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: statusColor.withValues(alpha: 0.4),
-                        blurRadius: 4,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            Text(
-              animal.name,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A2E),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              animal.zoneName ?? 'Zona yoxdur',
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                statusLabel,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: statusColor,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            if (animal.batteryLevel != null)
-              Row(
-                children: [
-                  Icon(
-                    Icons.battery_4_bar,
-                    size: 11,
-                    color: animal.batteryLevel! > 0.2
-                        ? const Color(0xFF2ECC71)
-                        : Colors.red,
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    '${(animal.batteryLevel! * 100).toInt()}%',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: animal.batteryLevel! > 0.2
-                          ? const Color(0xFF2ECC71)
-                          : Colors.red,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    _formatTime(animal.lastUpdate),
-                    style: TextStyle(fontSize: 10, color: Colors.grey[400]),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildEmpty() {
     return Center(
       child: Column(
@@ -822,7 +675,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Heyvan tapilmadi',
+            'Heyvan tapılmadı',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -837,7 +690,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   void _showAddAnimal() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Yeni heyvan elave etme — hazirlanir'),
+        content: Text('Yeni heyvan əlavə etmə — hazırlanır'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -867,7 +720,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              '${_selectedIds.length} heyvan secildi',
+              '${_selectedIds.length} heyvan seçildi',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -877,19 +730,22 @@ class _TrackingScreenState extends State<TrackingScreen> {
             const SizedBox(height: 16),
             _actionBtn(
               Icons.map_outlined,
-              'Xeritede goster',
+              'Xəritədə göstər',
               const Color(0xFF3498DB),
-              () => Navigator.pop(context),
+              () {
+                Navigator.pop(context);
+                _navigateToMapWithSelected();
+              },
             ),
             const SizedBox(height: 10),
             _actionBtn(
               Icons.notifications_outlined,
-              'Xeberdarliqlar',
+              'Xəbərdarlıqlar',
               const Color(0xFFFF9800),
               () => Navigator.pop(context),
             ),
             const SizedBox(height: 10),
-            _actionBtn(Icons.clear_rounded, 'Secimi temizle', Colors.grey, () {
+            _actionBtn(Icons.clear_rounded, 'Seçimi təmizlə', Colors.grey, () {
               setState(() {
                 _selectedIds.clear();
                 _selectMode = false;
@@ -898,6 +754,20 @@ class _TrackingScreenState extends State<TrackingScreen> {
             }),
             const SizedBox(height: 8),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _navigateToMapWithSelected() {
+    final selectedAnimals = _animals
+        .where((a) => _selectedIds.contains(a.id))
+        .toList();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MapScreen(
+          highlightedAnimalIds: _selectedIds.toList(),
+          animalEntities: selectedAnimals,
         ),
       ),
     );
@@ -950,9 +820,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
   String _statusLabel(AnimalZoneStatus s) {
     switch (s) {
       case AnimalZoneStatus.inside:
-        return 'Icerde';
+        return 'İçərdə';
       case AnimalZoneStatus.outside:
-        return 'Disarda';
+        return 'Xaricdə';
       case AnimalZoneStatus.alert:
         return 'ALERT';
     }
@@ -994,7 +864,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
   String _formatTime(DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'Indi';
+    if (diff.inMinutes < 1) return 'İndi';
     if (diff.inMinutes < 60) return '${diff.inMinutes}dq';
     if (diff.inHours < 24) return '${diff.inHours}s';
     return '${diff.inDays}g';

@@ -1,5 +1,3 @@
-// lib/features/auth/presentation/screens/splash_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
@@ -9,7 +7,6 @@ import 'package:meta_tracking/main.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -58,16 +55,18 @@ class _SplashScreenState extends State<SplashScreen>
     );
     _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
-          parent: _logoController,
-          curve: const Interval(0.0, 0.4, curve: Curves.easeIn)),
+        parent: _logoController,
+        curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
+      ),
     );
-    _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeIn),
-    );
-    _textSlide =
-        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeOut),
-    );
+    _textOpacity = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _textController, curve: Curves.easeIn));
+    _textSlide = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _textController, curve: Curves.easeOut));
 
     _startAnimations();
   }
@@ -83,7 +82,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _navigate() {
     if (!mounted) return;
-    AppLogger.melumat('SPLASH', 'Auth yoxlanilir...');
+    AppLogger.melumat('SPLASH', 'Auth yoxlanılır...');
     context.read<AuthBloc>().add(const CheckAuthEvent());
   }
 
@@ -101,15 +100,13 @@ class _SplashScreenState extends State<SplashScreen>
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          AppLogger.ugur('SPLASH', 'Auth OK -> Ana sehife');
-          Navigator.of(context).pushReplacement(
-            _fadeRoute(const HomePage()),
-          );
+          AppLogger.ugur('SPLASH', 'Auth OK -> Ana səhifə');
+          Navigator.of(context).pushReplacement(_fadeRoute(const HomePage()));
         } else if (state is AuthUnauthenticated) {
           AppLogger.melumat('SPLASH', 'Auth yoxdur -> Login');
-          Navigator.of(context).pushReplacement(
-            _fadeRoute(const LoginScreen()),
-          );
+          Navigator.of(
+            context,
+          ).pushReplacement(_fadeRoute(const LoginScreen()));
         }
       },
       child: Scaffold(
@@ -138,18 +135,12 @@ class _SplashScreenState extends State<SplashScreen>
           },
           child: Stack(
             children: [
-              // Arxa planda dekoratif daireler
-              ..._buildDecorativeCircles(),
-
-              // Heyvan izi animasiyasi
-              ..._buildPawPrints(),
-
-              // Merkez content
+              _buildDecorativeCircles(),
+              _buildPawPrints(),
               Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Logo
                     ScaleTransition(
                       scale: _logoScale,
                       child: FadeTransition(
@@ -160,14 +151,13 @@ class _SplashScreenState extends State<SplashScreen>
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: const RadialGradient(
-                              colors: [
-                                Color(0xFF4CAF50),
-                                Color(0xFF1B5E20),
-                              ],
+                              colors: [Color(0xFF4CAF50), Color(0xFF1B5E20)],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
+                                color: const Color(
+                                  0xFF4CAF50,
+                                ).withValues(alpha: 0.5),
                                 blurRadius: 40,
                                 spreadRadius: 10,
                               ),
@@ -181,10 +171,7 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 32),
-
-                    // App adi
                     SlideTransition(
                       position: _textSlide,
                       child: FadeTransition(
@@ -192,12 +179,8 @@ class _SplashScreenState extends State<SplashScreen>
                         child: Column(
                           children: [
                             ShaderMask(
-                              shaderCallback: (bounds) =>
-                                  const LinearGradient(
-                                colors: [
-                                  Color(0xFF81C784),
-                                  Color(0xFF4CAF50),
-                                ],
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFF81C784), Color(0xFF4CAF50)],
                               ).createShader(bounds),
                               child: const Text(
                                 'META TRACKING',
@@ -211,7 +194,7 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Heyvan Izleme Sistemi',
+                              'Heyvan İzləmə Sistemi',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.white.withValues(alpha: 0.6),
@@ -223,10 +206,7 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 80),
-
-                    // Yukleme indikatori
                     FadeTransition(
                       opacity: _textOpacity,
                       child: SizedBox(
@@ -250,50 +230,50 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  List<Widget> _buildDecorativeCircles() {
-    return [
-      Positioned(
-        top: -80,
-        right: -80,
-        child: AnimatedBuilder(
-          animation: _bgAnimation,
-          builder: (_, __) => Opacity(
-            opacity: _bgAnimation.value * 0.15,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                    color: const Color(0xFF4CAF50), width: 1),
+  Widget _buildDecorativeCircles() {
+    return Stack(
+      children: [
+        Positioned(
+          top: -80,
+          right: -80,
+          child: AnimatedBuilder(
+            animation: _bgAnimation,
+            builder: (_, __) => Opacity(
+              opacity: _bgAnimation.value * 0.15,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF4CAF50), width: 1),
+                ),
               ),
             ),
           ),
         ),
-      ),
-      Positioned(
-        bottom: -120,
-        left: -60,
-        child: AnimatedBuilder(
-          animation: _bgAnimation,
-          builder: (_, __) => Opacity(
-            opacity: _bgAnimation.value * 0.1,
-            child: Container(
-              width: 400,
-              height: 400,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border:
-                    Border.all(color: const Color(0xFF81C784), width: 1),
+        Positioned(
+          bottom: -120,
+          left: -60,
+          child: AnimatedBuilder(
+            animation: _bgAnimation,
+            builder: (_, __) => Opacity(
+              opacity: _bgAnimation.value * 0.1,
+              child: Container(
+                width: 400,
+                height: 400,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF81C784), width: 1),
+                ),
               ),
             ),
           ),
         ),
-      ),
-    ];
+      ],
+    );
   }
 
-  List<Widget> _buildPawPrints() {
+  Widget _buildPawPrints() {
     final positions = [
       const Offset(40, 180),
       const Offset(90, 240),
@@ -302,38 +282,38 @@ class _SplashScreenState extends State<SplashScreen>
       const Offset(330, 180),
       const Offset(290, 240),
     ];
-
-    return positions.asMap().entries.map((entry) {
-      final i = entry.key;
-      final pos = entry.value;
-      return Positioned(
-        left: pos.dx,
-        top: pos.dy,
-        child: AnimatedBuilder(
-          animation: _pawController,
-          builder: (_, __) {
-            final delay = i * 0.15;
-            final t = ((_pawController.value - delay) % 1.0).clamp(0.0, 1.0);
-            return Opacity(
-              opacity: t * 0.2,
-              child: Icon(
-                Icons.pets,
-                size: 20,
-                color: const Color(0xFF4CAF50),
-              ),
-            );
-          },
-        ),
-      );
-    }).toList();
+    return Stack(
+      children: positions.asMap().entries.map((entry) {
+        final i = entry.key;
+        final pos = entry.value;
+        return Positioned(
+          left: pos.dx,
+          top: pos.dy,
+          child: AnimatedBuilder(
+            animation: _pawController,
+            builder: (_, __) {
+              final delay = i * 0.15;
+              final t = ((_pawController.value - delay) % 1.0).clamp(0.0, 1.0);
+              return Opacity(
+                opacity: t * 0.2,
+                child: const Icon(
+                  Icons.pets,
+                  size: 20,
+                  color: Color(0xFF4CAF50),
+                ),
+              );
+            },
+          ),
+        );
+      }).toList(),
+    );
   }
 
   Route _fadeRoute(Widget page) {
     return PageRouteBuilder(
       pageBuilder: (_, __, ___) => page,
-      transitionsBuilder: (_, animation, __, child) {
-        return FadeTransition(opacity: animation, child: child);
-      },
+      transitionsBuilder: (_, animation, __, child) =>
+          FadeTransition(opacity: animation, child: child),
       transitionDuration: const Duration(milliseconds: 600),
     );
   }

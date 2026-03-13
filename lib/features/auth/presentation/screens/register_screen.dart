@@ -1,5 +1,3 @@
-// lib/features/auth/presentation/screens/register_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
@@ -8,7 +6,6 @@ import 'package:meta_tracking/main.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
-
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
@@ -33,25 +30,22 @@ class _RegisterScreenState extends State<RegisterScreen>
   void initState() {
     super.initState();
     AppLogger.ekranAcildi('Register Screen');
-
     _bgController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat(reverse: true);
-
     _cardController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
-
     _bgWave = CurvedAnimation(parent: _bgController, curve: Curves.easeInOut);
     _cardSlide = Tween<double>(begin: 50.0, end: 0.0).animate(
       CurvedAnimation(parent: _cardController, curve: Curves.easeOutCubic),
     );
-    _cardOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _cardController, curve: Curves.easeIn),
-    );
-
+    _cardOpacity = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _cardController, curve: Curves.easeIn));
     _cardController.forward();
   }
 
@@ -68,12 +62,14 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   void _register() {
     if (!_formKey.currentState!.validate()) return;
-    AppLogger.melumat('REGISTER', 'Qeydiyyat formu gonderidir');
-    context.read<AuthBloc>().add(RegisterEvent(
-          name: _nameController.text.trim(),
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        ));
+    AppLogger.melumat('REGISTER', 'Qeydiyyat formu göndərilir');
+    context.read<AuthBloc>().add(
+      RegisterEvent(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      ),
+    );
   }
 
   @override
@@ -81,7 +77,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          AppLogger.ugur('REGISTER', 'Qeydiyyat OK -> Ana sehife');
+          AppLogger.ugur('REGISTER', 'Qeydiyyat OK -> Ana səhifə');
           Navigator.of(context).pushAndRemoveUntil(
             PageRouteBuilder(
               pageBuilder: (_, __, ___) => const HomePage(),
@@ -92,14 +88,15 @@ class _RegisterScreenState extends State<RegisterScreen>
             (_) => false,
           );
         } else if (state is AuthError) {
-          AppLogger.xeberdarliq('REGISTER', 'Xeta: ${state.message}');
+          AppLogger.xeberdarliq('REGISTER', 'Xəta: ${state.message}');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
               backgroundColor: Colors.red[700],
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         }
@@ -107,35 +104,40 @@ class _RegisterScreenState extends State<RegisterScreen>
       child: Scaffold(
         body: AnimatedBuilder(
           animation: _bgWave,
-          builder: (context, child) {
-            return Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                  colors: [
-                    Color.lerp(
-                        const Color(0xFF0A1628), const Color(0xFF0D1F2D),
-                        _bgWave.value)!,
-                    Color.lerp(
-                        const Color(0xFF0D2818), const Color(0xFF122A18),
-                        _bgWave.value)!,
-                    Color.lerp(
-                        const Color(0xFF1A3A1A), const Color(0xFF0F2510),
-                        _bgWave.value)!,
-                  ],
-                ),
+          builder: (context, child) => Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [
+                  Color.lerp(
+                    const Color(0xFF0A1628),
+                    const Color(0xFF0D1F2D),
+                    _bgWave.value,
+                  )!,
+                  Color.lerp(
+                    const Color(0xFF0D2818),
+                    const Color(0xFF122A18),
+                    _bgWave.value,
+                  )!,
+                  Color.lerp(
+                    const Color(0xFF1A3A1A),
+                    const Color(0xFF0F2510),
+                    _bgWave.value,
+                  )!,
+                ],
               ),
-              child: child,
-            );
-          },
+            ),
+            child: child,
+          ),
           child: SafeArea(
             child: Column(
               children: [
-                // AppBar
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 8),
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       IconButton(
@@ -149,8 +151,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                               color: Colors.white.withValues(alpha: 0.1),
                             ),
                           ),
-                          child: const Icon(Icons.arrow_back_ios_new,
-                              color: Colors.white, size: 16),
+                          child: const Icon(
+                            Icons.arrow_back_ios_new,
+                            color: Colors.white,
+                            size: 16,
+                          ),
                         ),
                       ),
                       const Spacer(),
@@ -168,8 +173,6 @@ class _RegisterScreenState extends State<RegisterScreen>
                     ],
                   ),
                 ),
-
-                // Form
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
@@ -178,11 +181,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                       builder: (_, child) => Transform.translate(
                         offset: Offset(0, _cardSlide.value),
                         child: Opacity(
-                            opacity: _cardOpacity.value, child: child),
+                          opacity: _cardOpacity.value,
+                          child: child,
+                        ),
                       ),
                       child: Column(
                         children: [
-                          // Ust ikon
                           Container(
                             width: 70,
                             height: 70,
@@ -190,25 +194,24 @@ class _RegisterScreenState extends State<RegisterScreen>
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: const RadialGradient(
-                                colors: [
-                                  Color(0xFF66BB6A),
-                                  Color(0xFF1B5E20)
-                                ],
+                                colors: [Color(0xFF66BB6A), Color(0xFF1B5E20)],
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF4CAF50)
-                                      .withValues(alpha: 0.35),
+                                  color: const Color(
+                                    0xFF4CAF50,
+                                  ).withValues(alpha: 0.35),
                                   blurRadius: 24,
                                   spreadRadius: 4,
                                 ),
                               ],
                             ),
-                            child: const Icon(Icons.person_add_outlined,
-                                size: 36, color: Colors.white),
+                            child: const Icon(
+                              Icons.person_add_outlined,
+                              size: 36,
+                              color: Colors.white,
+                            ),
                           ),
-
-                          // Kart
                           Container(
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
@@ -247,14 +250,14 @@ class _RegisterScreenState extends State<RegisterScreen>
                                       if (v == null || v.isEmpty)
                                         return 'Email daxil edin';
                                       if (!v.contains('@'))
-                                        return 'Duzgun email daxil edin';
+                                        return 'Düzgün email daxil edin';
                                       return null;
                                     },
                                   ),
                                   const SizedBox(height: 14),
                                   _buildField(
                                     controller: _passwordController,
-                                    label: 'Sifre',
+                                    label: 'Şifrə',
                                     icon: Icons.lock_outline,
                                     obscureText: !_passwordVisible,
                                     suffixIcon: IconButton(
@@ -265,21 +268,23 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         color: Colors.white38,
                                         size: 18,
                                       ),
-                                      onPressed: () => setState(() =>
-                                          _passwordVisible = !_passwordVisible),
+                                      onPressed: () => setState(
+                                        () => _passwordVisible =
+                                            !_passwordVisible,
+                                      ),
                                     ),
                                     validator: (v) {
                                       if (v == null || v.isEmpty)
-                                        return 'Sifre daxil edin';
+                                        return 'Şifrə daxil edin';
                                       if (v.length < 6)
-                                        return 'En az 6 xaner olmalidir';
+                                        return 'Ən az 6 xanə olmalıdır';
                                       return null;
                                     },
                                   ),
                                   const SizedBox(height: 14),
                                   _buildField(
                                     controller: _confirmController,
-                                    label: 'Sifre tekrar',
+                                    label: 'Şifrə təkrar',
                                     icon: Icons.lock_outline,
                                     obscureText: !_confirmVisible,
                                     suffixIcon: IconButton(
@@ -290,33 +295,33 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         color: Colors.white38,
                                         size: 18,
                                       ),
-                                      onPressed: () => setState(() =>
-                                          _confirmVisible = !_confirmVisible),
+                                      onPressed: () => setState(
+                                        () =>
+                                            _confirmVisible = !_confirmVisible,
+                                      ),
                                     ),
                                     validator: (v) {
                                       if (v != _passwordController.text)
-                                        return 'Sifreler uygun deyil';
+                                        return 'Şifrələr uyğun deyil';
                                       return null;
                                     },
                                   ),
                                   const SizedBox(height: 24),
                                   BlocBuilder<AuthBloc, AuthState>(
-                                    builder: (_, state) {
-                                      final isLoading = state is AuthLoading;
-                                      return _buildRegisterButton(isLoading);
-                                    },
+                                    builder: (_, state) => _buildRegisterButton(
+                                      state is AuthLoading,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 20),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                'Hesabiniz var? ',
+                                'Hesabınız var? ',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.5),
                                   fontSize: 13,
@@ -365,8 +370,10 @@ class _RegisterScreenState extends State<RegisterScreen>
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle:
-            TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 13),
+        labelStyle: TextStyle(
+          color: Colors.white.withValues(alpha: 0.45),
+          fontSize: 13,
+        ),
         prefixIcon: Icon(icon, color: Colors.white38, size: 18),
         suffixIcon: suffixIcon,
         enabledBorder: OutlineInputBorder(
@@ -375,8 +382,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Color(0xFF4CAF50), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFF4CAF50), width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -384,14 +390,15 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Colors.redAccent, width: 1.5),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
         ),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.04),
         errorStyle: const TextStyle(fontSize: 11),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 13,
+        ),
       ),
     );
   }

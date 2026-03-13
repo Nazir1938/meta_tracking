@@ -1,5 +1,3 @@
-// lib/features/auth/presentation/screens/profile_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
@@ -26,10 +24,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
-          'Cixis',
+          'Çıxış',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        content: const Text('Hesabdan cixmek isteyirsiniz?'),
+        content: const Text('Hesabdan çıxmaq istəyirsiniz?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -38,11 +36,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              AppLogger.melumat('PROFIL', 'Cixis edilir');
+              AppLogger.melumat('PROFİL', 'Çıxış edilir');
               ctx.read<AuthBloc>().add(const LogoutEvent());
             },
             child: const Text(
-              'Cix',
+              'Çıx',
               style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
             ),
           ),
@@ -86,11 +84,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildContent(BuildContext ctx, UserEntity user) {
     return CustomScrollView(
       slivers: [
-        // Header
         SliverToBoxAdapter(child: _buildHeader(ctx, user)),
-        // Stats
         SliverToBoxAdapter(child: _buildStats()),
-        // Menu
         SliverToBoxAdapter(child: _buildMenu(ctx)),
       ],
     );
@@ -120,7 +115,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               const Expanded(
                 child: Text(
-                  'Menu',
+                  'Menyu',
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -144,7 +139,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          // Profil karti
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -153,7 +147,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: Row(
               children: [
-                // Avatar
                 Container(
                   width: 60,
                   height: 60,
@@ -207,7 +200,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
-                          'Premium Abune',
+                          'Premium Abunə',
                           style: TextStyle(
                             color: Color(0xFF2ECC71),
                             fontSize: 11,
@@ -295,9 +288,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _divider() {
-    return Container(width: 1, height: 40, color: Colors.grey.shade100);
-  }
+  Widget _divider() =>
+      Container(width: 1, height: 40, color: Colors.grey.shade100);
 
   Widget _buildMenu(BuildContext ctx) {
     return Padding(
@@ -305,65 +297,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Hesab bolmesi
           _sectionTitle('HESAB'),
           const SizedBox(height: 8),
           _menuCard([
             _menuRow(
               icon: Icons.person_outline_rounded,
-              label: 'Shexsi Melumatlar',
-              onTap: () => AppLogger.melumat('PROFIL', 'Shexsi melumatlar'),
+              label: 'Şəxsi Məlumatlar',
+              onTap: () => AppLogger.melumat('PROFİL', 'Şəxsi məlumatlar'),
             ),
             _menuDivider(),
             _menuRow(
               icon: Icons.pets_outlined,
-              label: 'Heyvanlarim',
-              onTap: () => AppLogger.melumat('PROFIL', 'Heyvanlar'),
+              label: 'Heyvanlarım',
+              onTap: () => AppLogger.melumat('PROFİL', 'Heyvanlar'),
             ),
             _menuDivider(),
             _menuRow(
               icon: Icons.my_location_outlined,
-              label: 'Geofencing Zonalari',
+              label: 'Geofencing Zonaları',
               badge: '2',
               badgeColor: const Color(0xFF3498DB),
-              onTap: () => AppLogger.melumat('PROFIL', 'Geofencing'),
+              onTap: () => AppLogger.melumat('PROFİL', 'Geofencing'),
             ),
             _menuDivider(),
             _menuRow(
               icon: Icons.history_rounded,
-              label: 'Movcud Tarix',
-              onTap: () => AppLogger.melumat('PROFIL', 'Tarix'),
+              label: 'Mövcud Tarix',
+              onTap: () => AppLogger.melumat('PROFİL', 'Tarix'),
             ),
           ]),
-
           const SizedBox(height: 16),
-
-          // Tenzimlemeler
-          _sectionTitle('TENZIMLEMELER'),
+          _sectionTitle('TƏNZİMLƏMƏLƏR'),
           const SizedBox(height: 8),
           _menuCard([
             _menuRow(
               icon: Icons.notifications_outlined,
-              label: 'Bildiriş Tenzimleri',
+              label: 'Bildiriş Tənzimləri',
               onTap: () {},
             ),
             _menuDivider(),
             _menuRow(
               icon: Icons.language_outlined,
-              label: 'Dil: Azerbaycan',
+              label: 'Dil: Azərbaycan',
               onTap: () {},
             ),
             _menuDivider(),
             _menuRow(
               icon: Icons.help_outline_rounded,
-              label: 'Destek',
+              label: 'Dəstək',
               onTap: () {},
             ),
           ]),
-
           const SizedBox(height: 16),
-
-          // Cixis
           GestureDetector(
             onTap: () => _logout(ctx),
             child: Container(
@@ -396,7 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(width: 14),
                   const Text(
-                    'Cixis Et',
+                    'Çıxış Et',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
