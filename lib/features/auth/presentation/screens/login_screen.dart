@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
 import 'package:meta_tracking/features/auth/presentation/bloc/auth_bloc.dart';
@@ -13,124 +14,100 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with TickerProviderStateMixin {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
+  final _emailCtrl    = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _formKey      = GlobalKey<FormState>();
   bool _passwordVisible = false;
 
-  late AnimationController _bgController;
-  late AnimationController _cardController;
-  late AnimationController _shakeController;
-  late Animation<double> _cardSlide;
+  late AnimationController _bgCtrl;
+  late AnimationController _cardCtrl;
+  late AnimationController _shakeCtrl;
+
+  late Animation<double> _bgAnim;
+  late Animation<double> _cardY;
   late Animation<double> _cardOpacity;
   late Animation<double> _shakeAnim;
-  late Animation<double> _bgWave;
 
   @override
   void initState() {
     super.initState();
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ));
     AppLogger.ekranAcildi('Login Screen');
 
-    _bgController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat(reverse: true);
-    _cardController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _shakeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
+    _bgCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 8))
+      ..repeat(reverse: true);
+    _cardCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _shakeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 480));
 
-    _bgWave = CurvedAnimation(parent: _bgController, curve: Curves.easeInOut);
-    _cardSlide = Tween<double>(begin: 60.0, end: 0.0).animate(
-      CurvedAnimation(parent: _cardController, curve: Curves.easeOutCubic),
-    );
-    _cardOpacity = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _cardController, curve: Curves.easeIn));
-    _shakeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
-    );
+    _bgAnim   = CurvedAnimation(parent: _bgCtrl, curve: Curves.easeInOut);
+    _cardY    = Tween<double>(begin: 56.0, end: 0.0).animate(
+        CurvedAnimation(parent: _cardCtrl, curve: Curves.easeOutCubic));
+    _cardOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _cardCtrl, curve: Curves.easeIn));
+    _shakeAnim   = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _shakeCtrl, curve: Curves.elasticIn));
 
-    _cardController.forward();
+    _cardCtrl.forward();
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    _bgController.dispose();
-    _cardController.dispose();
-    _shakeController.dispose();
+    _emailCtrl.dispose(); _passwordCtrl.dispose();
+    _bgCtrl.dispose(); _cardCtrl.dispose(); _shakeCtrl.dispose();
     super.dispose();
   }
 
   void _login() {
     if (!_formKey.currentState!.validate()) {
-      _shakeController.forward(from: 0);
+      _shakeCtrl.forward(from: 0);
       return;
     }
     AppLogger.melumat('LOGIN', 'Login formu göndərilir');
-    context.read<AuthBloc>().add(
-      LoginEvent(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      ),
-    );
+    context.read<AuthBloc>().add(LoginEvent(
+      email: _emailCtrl.text.trim(),
+      password: _passwordCtrl.text,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
+      listener: (ctx, state) {
         if (state is AuthAuthenticated) {
-          AppLogger.ugur('LOGIN', 'Login OK -> Ana səhifə');
-          Navigator.of(
-            context,
-          ).pushAndRemoveUntil(_slideRoute(const HomePage()), (_) => false);
+          Navigator.of(ctx).pushAndRemoveUntil(
+            _slideRoute(const HomePage()), (_) => false);
         } else if (state is AuthError) {
-          AppLogger.xeberdarliq('LOGIN', 'Login xətası: ${state.message}');
-          _shakeController.forward(from: 0);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Colors.red[700],
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
+          _shakeCtrl.forward(from: 0);
+          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+            content: Row(children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Text(state.message)),
+            ]),
+            backgroundColor: const Color(0xFFE53935),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+          ));
         }
       },
       child: Scaffold(
+        backgroundColor: const Color(0xFF050D18),
+        resizeToAvoidBottomInset: true,
         body: AnimatedBuilder(
-          animation: _bgWave,
-          builder: (context, child) => Container(
+          animation: _bgAnim,
+          builder: (ctx, child) => Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color.lerp(
-                    const Color(0xFF0A1628),
-                    const Color(0xFF0D2818),
-                    _bgWave.value,
-                  )!,
-                  Color.lerp(
-                    const Color(0xFF0D2818),
-                    const Color(0xFF1A3A2A),
-                    _bgWave.value,
-                  )!,
-                  Color.lerp(
-                    const Color(0xFF1A3A1A),
-                    const Color(0xFF0A2010),
-                    _bgWave.value,
-                  )!,
+                  Color.lerp(const Color(0xFF050D18), const Color(0xFF071810), _bgAnim.value)!,
+                  Color.lerp(const Color(0xFF0A1C10), const Color(0xFF0D2318), _bgAnim.value)!,
+                  Color.lerp(const Color(0xFF071215), const Color(0xFF050D18), _bgAnim.value)!,
                 ],
               ),
             ),
@@ -138,27 +115,29 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           child: SafeArea(
             child: SingleChildScrollView(
-              child: SizedBox(
-                height:
-                    MediaQuery.of(context).size.height -
-                    MediaQuery.of(context).padding.top,
-                child: Column(
-                  children: [
-                    _buildHeader(),
-                    const Spacer(),
-                    AnimatedBuilder(
-                      animation: _cardController,
-                      builder: (_, child) => Transform.translate(
-                        offset: Offset(0, _cardSlide.value),
-                        child: Opacity(
-                          opacity: _cardOpacity.value,
-                          child: child,
+              physics: const ClampingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height -
+                      MediaQuery.of(context).padding.top -
+                      MediaQuery.of(context).padding.bottom,
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    children: [
+                      _buildHeader(),
+                      const Spacer(),
+                      AnimatedBuilder(
+                        animation: _cardCtrl,
+                        builder: (_, child) => Transform.translate(
+                          offset: Offset(0, _cardY.value),
+                          child: Opacity(opacity: _cardOpacity.value, child: child),
                         ),
+                        child: _buildCard(),
                       ),
-                      child: _buildLoginCard(),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
+                      const SizedBox(height: 32),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -170,48 +149,47 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.only(top: 60, bottom: 20),
+      padding: const EdgeInsets.fromLTRB(24, 52, 24, 0),
       child: Column(
         children: [
+          // Logo
           Container(
-            width: 90,
-            height: 90,
+            width: 84, height: 84,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const RadialGradient(
-                colors: [Color(0xFF66BB6A), Color(0xFF1B5E20)],
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF56D97B), Color(0xFF1B5E20)],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
-                  blurRadius: 30,
-                  spreadRadius: 5,
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.45),
+                  blurRadius: 28, spreadRadius: 4,
                 ),
               ],
             ),
-            child: const Icon(Icons.pets, size: 48, color: Colors.white),
+            child: const Icon(Icons.pets_rounded, size: 44, color: Colors.white),
           ),
           const SizedBox(height: 20),
           ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [Color(0xFF81C784), Color(0xFF4CAF50)],
-            ).createShader(bounds),
+            shaderCallback: (b) => const LinearGradient(
+              colors: [Color(0xFFA5D6A7), Color(0xFF4CAF50)],
+            ).createShader(b),
             child: const Text(
               'XOŞ GƏLDİNİZ',
               style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                letterSpacing: 4,
+                fontSize: 24, fontWeight: FontWeight.w900,
+                color: Colors.white, letterSpacing: 5,
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            'Heyvan izləmə sisteminə daxil olun',
+            'Hesabınıza daxil olun',
             style: TextStyle(
               fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.5),
+              color: Colors.white.withValues(alpha: 0.45),
               letterSpacing: 0.5,
             ),
           ),
@@ -220,170 +198,187 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildLoginCard() {
+  Widget _buildCard() {
     return AnimatedBuilder(
       animation: _shakeAnim,
       builder: (_, child) {
-        final shake = _shakeController.isAnimating
-            ? (4.0 * (0.5 - (_shakeAnim.value - 0.5).abs()) * 2)
+        final shake = _shakeCtrl.isAnimating
+            ? 5.0 * (0.5 - (_shakeAnim.value - 0.5).abs()) * 2
             : 0.0;
         return Transform.translate(offset: Offset(shake, 0), child: child);
       },
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24),
-        padding: const EdgeInsets.all(28),
+        margin: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.09), width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 40,
-              offset: const Offset(0, 20),
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 48, offset: const Offset(0, 20),
             ),
           ],
         ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildInputField(
-                controller: _emailController,
-                label: 'Email',
-                icon: Icons.email_outlined,
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Email daxil edin';
-                  if (!v.contains('@')) return 'Düzgün email daxil edin';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              _buildInputField(
-                controller: _passwordController,
-                label: 'Şifrə',
-                icon: Icons.lock_outline,
-                obscureText: !_passwordVisible,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _passwordVisible
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: Colors.white38,
-                    size: 20,
-                  ),
-                  onPressed: () =>
-                      setState(() => _passwordVisible = !_passwordVisible),
+        child: Padding(
+          padding: const EdgeInsets.all(26),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Email
+                _field(
+                  ctrl: _emailCtrl,
+                  label: 'Email ünvanı',
+                  icon: Icons.alternate_email_rounded,
+                  type: TextInputType.emailAddress,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Email daxil edin';
+                    if (!v.contains('@')) return 'Düzgün email daxil edin';
+                    return null;
+                  },
                 ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Şifrə daxil edin';
-                  if (v.length < 6)
-                    return 'Şifrə ən az 6 xanədən ibarət olmalıdır';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 28),
-              BlocBuilder<AuthBloc, AuthState>(
-                builder: (context, state) =>
-                    _buildLoginButton(state is AuthLoading),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Hesabınız yoxdur? ',
+                const SizedBox(height: 14),
+                // Password
+                _field(
+                  ctrl: _passwordCtrl,
+                  label: 'Şifrə',
+                  icon: Icons.lock_outline_rounded,
+                  obscure: !_passwordVisible,
+                  suffix: GestureDetector(
+                    onTap: () => setState(() => _passwordVisible = !_passwordVisible),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Icon(
+                        _passwordVisible
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: Colors.white38, size: 19,
+                      ),
+                    ),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Şifrə daxil edin';
+                    if (v.length < 6) return 'Ən az 6 xanə olmalıdır';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 8),
+                // Forgot pass hint (visual)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'Şifrəni unutmusunuz?',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 13,
+                      fontSize: 12,
+                      color: const Color(0xFF4CAF50).withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w500,
                     ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      AppLogger.melumat('LOGIN', 'Register səhifəsinə keçid');
-                      Navigator.of(
-                        context,
-                      ).push(_slideRoute(const RegisterScreen()));
-                    },
-                    child: const Text(
-                      'Qeydiyyat',
-                      style: TextStyle(
-                        color: Color(0xFF4CAF50),
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 14,
-                      color: const Color(0xFF4CAF50).withValues(alpha: 0.7),
+                const SizedBox(height: 24),
+                // Login button
+                BlocBuilder<AuthBloc, AuthState>(
+                  builder: (_, state) => _loginBtn(state is AuthLoading),
+                ),
+                const SizedBox(height: 20),
+                // Divider
+                Row(children: [
+                  Expanded(child: Container(height: 1, color: Colors.white.withValues(alpha: 0.08))),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('və ya', style: TextStyle(
+                      fontSize: 12, color: Colors.white.withValues(alpha: 0.3),
+                    )),
+                  ),
+                  Expanded(child: Container(height: 1, color: Colors.white.withValues(alpha: 0.08))),
+                ]),
+                const SizedBox(height: 20),
+                // Register link
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(_slideRoute(const RegisterScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.35)),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Demo: demo@meta.az / 123456',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: const Color(0xFF81C784).withValues(alpha: 0.8),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.person_add_outlined, color: Color(0xFF4CAF50), size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Yeni hesab yarat',
+                          style: TextStyle(
+                            color: Color(0xFF4CAF50),
+                            fontSize: 14, fontWeight: FontWeight.w600,
+                          ),
                         ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Demo hint
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: const Color(0xFF4CAF50).withValues(alpha: 0.18)),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.info_outline, size: 14,
+                        color: const Color(0xFF4CAF50).withValues(alpha: 0.8)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Demo: demo@meta.az  /  123456',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: const Color(0xFF81C784).withValues(alpha: 0.85),
+                        letterSpacing: 0.3,
                       ),
                     ),
-                  ],
+                  ]),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildInputField({
-    required TextEditingController controller,
+  Widget _field({
+    required TextEditingController ctrl,
     required String label,
     required IconData icon,
-    TextInputType? keyboardType,
-    bool obscureText = false,
-    Widget? suffixIcon,
+    TextInputType? type,
+    bool obscure = false,
+    Widget? suffix,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      obscureText: obscureText,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
+      controller: ctrl,
+      keyboardType: type,
+      obscureText: obscure,
+      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(
-          color: Colors.white.withValues(alpha: 0.5),
-          fontSize: 13,
+        labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 13),
+        prefixIcon: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Icon(icon, color: Colors.white38, size: 19),
         ),
-        prefixIcon: Icon(icon, color: Colors.white38, size: 20),
-        suffixIcon: suffixIcon,
+        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+        suffixIcon: suffix,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -391,81 +386,78 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.red, width: 1),
+          borderSide: const BorderSide(color: Color(0xFFEF5350)),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.red, width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFFEF5350), width: 1.5),
         ),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.05),
-        errorStyle: const TextStyle(fontSize: 11),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
+        errorStyle: const TextStyle(fontSize: 11, color: Color(0xFFEF9A9A)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       ),
     );
   }
 
-  Widget _buildLoginButton(bool isLoading) {
+  Widget _loginBtn(bool loading) {
     return GestureDetector(
-      onTap: isLoading ? null : _login,
+      onTap: loading ? null : _login,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         height: 52,
         decoration: BoxDecoration(
-          gradient: isLoading
+          gradient: loading
               ? null
               : const LinearGradient(
-                  colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+                  colors: [Color(0xFF56D97B), Color(0xFF2E7D32)],
+                  begin: Alignment.centerLeft, end: Alignment.centerRight,
                 ),
-          color: isLoading ? Colors.white12 : null,
+          color: loading ? Colors.white12 : null,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: isLoading
+          boxShadow: loading
               ? []
               : [
                   BoxShadow(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.45),
+                    blurRadius: 18, offset: const Offset(0, 7),
                   ),
                 ],
         ),
         child: Center(
-          child: isLoading
+          child: loading
               ? const SizedBox(
-                  width: 22,
-                  height: 22,
+                  width: 22, height: 22,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(Colors.white54),
-                  ),
-                )
-              : const Text(
-                  'DAXİL OL',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                    letterSpacing: 2,
-                  ),
+                    strokeWidth: 2.5,
+                    valueColor: AlwaysStoppedAnimation(Colors.white60),
+                  ))
+              : const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.login_rounded, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'DAXİL OL',
+                      style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w800,
+                        fontSize: 15, letterSpacing: 2.5,
+                      ),
+                    ),
+                  ],
                 ),
         ),
       ),
     );
   }
 
-  Route _slideRoute(Widget page) {
-    return PageRouteBuilder(
-      pageBuilder: (_, __, ___) => page,
-      transitionsBuilder: (_, animation, __, child) => SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1.0, 0.0),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-        child: child,
-      ),
-    );
-  }
+  Route _slideRoute(Widget page) => PageRouteBuilder(
+        pageBuilder: (_, __, ___) => page,
+        transitionsBuilder: (_, a, __, child) => SlideTransition(
+          position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+              .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
+          child: child,
+        ),
+        transitionDuration: const Duration(milliseconds: 320),
+      );
 }
