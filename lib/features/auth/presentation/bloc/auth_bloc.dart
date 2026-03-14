@@ -1,27 +1,30 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
-import 'package:meta_tracking/features/auth/domain/entities/user_entity.dart';
+import '../../domain/entities/user_entity.dart';
 
+// Events
 abstract class AuthEvent extends Equatable {
   const AuthEvent();
   @override
   List<Object?> get props => [];
 }
 
+class CheckAuthEvent extends AuthEvent {
+  const CheckAuthEvent();
+}
+
 class LoginEvent extends AuthEvent {
-  final String email;
-  final String password;
+  final String email, password;
   const LoginEvent({required this.email, required this.password});
   @override
   List<Object?> get props => [email, password];
 }
 
 class RegisterEvent extends AuthEvent {
-  final String name;
-  final String email;
-  final String password;
+  final String name, email, password;
   const RegisterEvent(
       {required this.name, required this.email, required this.password});
   @override
@@ -32,10 +35,7 @@ class LogoutEvent extends AuthEvent {
   const LogoutEvent();
 }
 
-class CheckAuthEvent extends AuthEvent {
-  const CheckAuthEvent();
-}
-
+// States
 abstract class AuthState extends Equatable {
   const AuthState();
   @override
@@ -68,126 +68,125 @@ class AuthError extends AuthState {
   List<Object?> get props => [message];
 }
 
-const _kUserId = 'auth_user_id';
-const _kUserName = 'auth_user_name';
-const _kUserEmail = 'auth_user_email';
-
+// BLoC
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final List<Map<String, String>> _mockUsers = [
-    {
-      'id': 'demo-001',
-      'name': 'Demo İstifadəçi',
-      'email': 'demo@meta.az',
-      'password': '123456'
-    },
-  ];
-  UserEntity? _currentUser;
+  final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
 
   AuthBloc() : super(const AuthInitial()) {
     AppLogger.melumat('AUTH BLOC', 'AuthBloc işə salındı');
-    on<CheckAuthEvent>(_onCheckAuth);
+    on<CheckAuthEvent>(_onCheck);
     on<LoginEvent>(_onLogin);
     on<RegisterEvent>(_onRegister);
     on<LogoutEvent>(_onLogout);
   }
 
-  UserEntity? get currentUser => _currentUser;
-
-  Future<void> _saveSession(UserEntity user) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kUserId, user.id);
-    await prefs.setString(_kUserName, user.name);
-    await prefs.setString(_kUserEmail, user.email);
-  }
-
-  Future<UserEntity?> _loadSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final id = prefs.getString(_kUserId);
-    final name = prefs.getString(_kUserName);
-    final email = prefs.getString(_kUserEmail);
-    if (id != null && name != null && email != null) {
-      return UserEntity(
-          id: id, name: name, email: email, createdAt: DateTime.now());
-    }
-    return null;
-  }
-
-  Future<void> _clearSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kUserId);
-    await prefs.remove(_kUserName);
-    await prefs.remove(_kUserEmail);
-  }
-
-  Future<void> _onCheckAuth(
-      CheckAuthEvent event, Emitter<AuthState> emit) async {
+  Future<void> _onCheck(CheckAuthEvent event, Emitter<AuthState> emit) async {
     AppLogger.blocHadise('AuthBloc', 'CheckAuthEvent');
     emit(const AuthLoading());
-    await Future.delayed(const Duration(milliseconds: 600));
-    final saved = await _loadSession();
-    if (saved != null) {
-      _currentUser = saved;
-      AppLogger.ugur('AUTH', 'Session bərpa edildi: ${saved.email}');
-      emit(AuthAuthenticated(_currentUser!));
+    final user = _auth.currentUser;
+    if (user != null) {
+      final entity = await _getUserEntity(user.uid);
+      if (entity != null) {
+        AppLogger.ugur('AUTH BLOC', 'Sessiya bərpa edildi: ${user.email}');
+        emit(AuthAuthenticated(entity));
+      } else {
+        emit(const AuthUnauthenticated());
+      }
     } else {
       emit(const AuthUnauthenticated());
     }
   }
 
   Future<void> _onLogin(LoginEvent event, Emitter<AuthState> emit) async {
-    AppLogger.blocHadise('AuthBloc', 'LoginEvent');
-    AppLogger.melumat('AUTH', 'Login cəhdi: ${event.email}');
+    AppLogger.blocHadise('AuthBloc', 'LoginEvent: ${event.email}');
     emit(const AuthLoading());
-    await Future.delayed(const Duration(milliseconds: 800));
-    final found = _mockUsers.where(
-      (u) => u['email'] == event.email && u['password'] == event.password,
-    );
-    if (found.isNotEmpty) {
-      final d = found.first;
-      _currentUser = UserEntity(
-          id: d['id']!,
-          name: d['name']!,
-          email: d['email']!,
-          createdAt: DateTime.now());
-      await _saveSession(_currentUser!);
-      AppLogger.ugur('AUTH', 'Login uğurlu: ${_currentUser!.name}');
-      emit(AuthAuthenticated(_currentUser!));
-    } else {
-      AppLogger.xeberdarliq('AUTH', 'Login uğursuz');
-      emit(const AuthError('Email və ya şifrə yanlışdır'));
+    try {
+      final cred = await _auth.signInWithEmailAndPassword(
+        email: event.email,
+        password: event.password,
+      );
+      final entity = await _getUserEntity(cred.user!.uid);
+      AppLogger.ugur('AUTH BLOC', 'Login uğurlu: ${cred.user!.email}');
+      emit(AuthAuthenticated(entity!));
+    } on FirebaseAuthException catch (e) {
+      AppLogger.xeta('AUTH BLOC', 'Login xətası: ${e.code}');
+      emit(AuthError(_parseAuthError(e.code)));
     }
   }
 
   Future<void> _onRegister(RegisterEvent event, Emitter<AuthState> emit) async {
-    AppLogger.blocHadise('AuthBloc', 'RegisterEvent');
+    AppLogger.blocHadise('AuthBloc', 'RegisterEvent: ${event.email}');
     emit(const AuthLoading());
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (_mockUsers.any((u) => u['email'] == event.email)) {
-      emit(const AuthError('Bu email artıq qeydiyyatdan keçib'));
-      return;
-    }
-    final newId = 'user-${DateTime.now().millisecondsSinceEpoch}';
-    _mockUsers.add({
-      'id': newId,
-      'name': event.name,
-      'email': event.email,
-      'password': event.password
-    });
-    _currentUser = UserEntity(
-        id: newId,
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: event.email,
+        password: event.password,
+      );
+      await cred.user!.updateDisplayName(event.name);
+
+      final userEntity = UserEntity(
+        id: cred.user!.uid,
         name: event.name,
         email: event.email,
-        createdAt: DateTime.now());
-    await _saveSession(_currentUser!);
-    AppLogger.ugur('AUTH', 'Qeydiyyat uğurlu: ${_currentUser!.name}');
-    emit(AuthAuthenticated(_currentUser!));
+        createdAt: DateTime.now(),
+      );
+      await _firestore.collection('users').doc(cred.user!.uid).set({
+        'name': event.name,
+        'email': event.email,
+        'createdAt': Timestamp.now(),
+      });
+
+      AppLogger.ugur('AUTH BLOC', 'Qeydiyyat uğurlu: ${event.name}');
+      emit(AuthAuthenticated(userEntity));
+    } on FirebaseAuthException catch (e) {
+      AppLogger.xeta('AUTH BLOC', 'Qeydiyyat xətası: ${e.code}');
+      emit(AuthError(_parseAuthError(e.code)));
+    }
   }
 
   Future<void> _onLogout(LogoutEvent event, Emitter<AuthState> emit) async {
     AppLogger.blocHadise('AuthBloc', 'LogoutEvent');
-    _currentUser = null;
-    await _clearSession();
+    await _auth.signOut();
+    AppLogger.ugur('AUTH BLOC', 'Çıxış uğurlu');
     emit(const AuthUnauthenticated());
-    AppLogger.ugur('AUTH', 'Çıxış uğurlu');
+  }
+
+  Future<UserEntity?> _getUserEntity(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) return null;
+      final data = doc.data()!;
+      return UserEntity(
+        id: uid,
+        name: data['name'] ?? '',
+        email: data['email'] ?? '',
+        createdAt:
+            (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      );
+    } catch (e) {
+      AppLogger.xeta('AUTH BLOC', 'İstifadəçi məlumatı alınmadı',
+          xetaObyekti: e);
+      return null;
+    }
+  }
+
+  String _parseAuthError(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'Bu email ilə istifadəçi tapılmadı';
+      case 'wrong-password':
+        return 'Şifrə yanlışdır';
+      case 'email-already-in-use':
+        return 'Bu email artıq qeydiyyatdan keçib';
+      case 'weak-password':
+        return 'Şifrə ən az 6 xanə olmalıdır';
+      case 'invalid-email':
+        return 'Email formatı yanlışdır';
+      case 'too-many-requests':
+        return 'Çox cəhd edildi. Sonra yenidən cəhd edin';
+      default:
+        return 'Xəta baş verdi: $code';
+    }
   }
 }

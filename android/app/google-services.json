@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "667679331975",
+    "project_id": "meta-tracking-animals",
+    "storage_bucket": "meta-tracking-animals.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:667679331975:android:22830ae96e52f3fba9ca22",
+        "android_client_info": {
+          "package_name": "com.example.meta_tracking"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-5C4O77uwCFx5nhQ7TWZzkqF8M_-lnzA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

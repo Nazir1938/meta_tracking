@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
 import 'package:meta_tracking/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:meta_tracking/features/auth/presentation/screens/register_screen.dart';
-import 'package:meta_tracking/main.dart';
+import 'package:meta_tracking/features/home/presentation/screens/home_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,8 +13,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
   final _emailCtrl    = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _formKey      = GlobalKey<FormState>();
@@ -22,7 +22,6 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _bgCtrl;
   late AnimationController _cardCtrl;
   late AnimationController _shakeCtrl;
-
   late Animation<double> _bgAnim;
   late Animation<double> _cardY;
   late Animation<double> _cardOpacity;
@@ -36,20 +35,13 @@ class _LoginScreenState extends State<LoginScreen>
       statusBarIconBrightness: Brightness.light,
     ));
     AppLogger.ekranAcildi('Login Screen');
-
-    _bgCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 8))
-      ..repeat(reverse: true);
+    _bgCtrl   = AnimationController(vsync: this, duration: const Duration(seconds: 8))..repeat(reverse: true);
     _cardCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
     _shakeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 480));
-
     _bgAnim   = CurvedAnimation(parent: _bgCtrl, curve: Curves.easeInOut);
-    _cardY    = Tween<double>(begin: 56.0, end: 0.0).animate(
-        CurvedAnimation(parent: _cardCtrl, curve: Curves.easeOutCubic));
-    _cardOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: _cardCtrl, curve: Curves.easeIn));
-    _shakeAnim   = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: _shakeCtrl, curve: Curves.elasticIn));
-
+    _cardY    = Tween<double>(begin: 56.0, end: 0.0).animate(CurvedAnimation(parent: _cardCtrl, curve: Curves.easeOutCubic));
+    _cardOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _cardCtrl, curve: Curves.easeIn));
+    _shakeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _shakeCtrl, curve: Curves.elasticIn));
     _cardCtrl.forward();
   }
 
@@ -65,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen>
       _shakeCtrl.forward(from: 0);
       return;
     }
-    AppLogger.melumat('LOGIN', 'Login formu göndərilir');
+    AppLogger.melumat('LOGIN', 'Login formu göndərilir: ${_emailCtrl.text.trim()}');
     context.read<AuthBloc>().add(LoginEvent(
       email: _emailCtrl.text.trim(),
       password: _passwordCtrl.text,
@@ -77,13 +69,13 @@ class _LoginScreenState extends State<LoginScreen>
     return BlocListener<AuthBloc, AuthState>(
       listener: (ctx, state) {
         if (state is AuthAuthenticated) {
-          Navigator.of(ctx).pushAndRemoveUntil(
-            _slideRoute(const HomePage()), (_) => false);
+          AppLogger.ugur('LOGIN', 'Uğurlu giriş: ${state.user.email}');
+          Navigator.of(ctx).pushAndRemoveUntil(_slideRoute(const HomePage()), (_) => false);
         } else if (state is AuthError) {
           _shakeCtrl.forward(from: 0);
           ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
             content: Row(children: [
-              const Icon(Icons.error_outline, color: Colors.white, size: 18),
+              const Icon(Iconsax.warning_2, color: Colors.white, size: 18),
               const SizedBox(width: 8),
               Expanded(child: Text(state.message)),
             ]),
@@ -102,8 +94,7 @@ class _LoginScreenState extends State<LoginScreen>
           builder: (ctx, child) => Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
                 colors: [
                   Color.lerp(const Color(0xFF050D18), const Color(0xFF071810), _bgAnim.value)!,
                   Color.lerp(const Color(0xFF0A1C10), const Color(0xFF0D2318), _bgAnim.value)!,
@@ -118,9 +109,9 @@ class _LoginScreenState extends State<LoginScreen>
               physics: const ClampingScrollPhysics(),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height -
-                      MediaQuery.of(context).padding.top -
-                      MediaQuery.of(context).padding.bottom,
+                  minHeight: MediaQuery.of(context).size.height
+                      - MediaQuery.of(context).padding.top
+                      - MediaQuery.of(context).padding.bottom,
                 ),
                 child: IntrinsicHeight(
                   child: Column(
@@ -150,51 +141,40 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 52, 24, 0),
-      child: Column(
-        children: [
-          // Logo
-          Container(
-            width: 84, height: 84,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF56D97B), Color(0xFF1B5E20)],
+      child: Column(children: [
+        Container(
+          width: 84, height: 84,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [Color(0xFF56D97B), Color(0xFF1B5E20)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.45),
+                blurRadius: 28, spreadRadius: 4,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.45),
-                  blurRadius: 28, spreadRadius: 4,
-                ),
-              ],
-            ),
-            child: const Icon(Icons.pets_rounded, size: 44, color: Colors.white),
+            ],
           ),
-          const SizedBox(height: 20),
-          ShaderMask(
-            shaderCallback: (b) => const LinearGradient(
-              colors: [Color(0xFFA5D6A7), Color(0xFF4CAF50)],
-            ).createShader(b),
-            child: const Text(
-              'XOŞ GƏLDİNİZ',
-              style: TextStyle(
-                fontSize: 24, fontWeight: FontWeight.w900,
-                color: Colors.white, letterSpacing: 5,
-              ),
-            ),
+          child: const Icon(Iconsax.pet5, size: 44, color: Colors.white),
+        ),
+        const SizedBox(height: 20),
+        ShaderMask(
+          shaderCallback: (b) => const LinearGradient(
+            colors: [Color(0xFFA5D6A7), Color(0xFF4CAF50)],
+          ).createShader(b),
+          child: const Text(
+            'XOŞ GƏLDİNİZ',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 5),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Hesabınıza daxil olun',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.45),
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Hesabınıza daxil olun',
+          style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.45), letterSpacing: 0.5),
+        ),
+      ]),
     );
   }
 
@@ -203,8 +183,7 @@ class _LoginScreenState extends State<LoginScreen>
       animation: _shakeAnim,
       builder: (_, child) {
         final shake = _shakeCtrl.isAnimating
-            ? 5.0 * (0.5 - (_shakeAnim.value - 0.5).abs()) * 2
-            : 0.0;
+            ? 5.0 * (0.5 - (_shakeAnim.value - 0.5).abs()) * 2 : 0.0;
         return Transform.translate(offset: Offset(shake, 0), child: child);
       },
       child: Container(
@@ -212,140 +191,81 @@ class _LoginScreenState extends State<LoginScreen>
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.09), width: 1),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 48, offset: const Offset(0, 20),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 48, offset: const Offset(0, 20)),
           ],
         ),
         child: Padding(
           padding: const EdgeInsets.all(26),
           child: Form(
             key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Email
-                _field(
-                  ctrl: _emailCtrl,
-                  label: 'Email ünvanı',
-                  icon: Icons.alternate_email_rounded,
-                  type: TextInputType.emailAddress,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Email daxil edin';
-                    if (!v.contains('@')) return 'Düzgün email daxil edin';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-                // Password
-                _field(
-                  ctrl: _passwordCtrl,
-                  label: 'Şifrə',
-                  icon: Icons.lock_outline_rounded,
-                  obscure: !_passwordVisible,
-                  suffix: GestureDetector(
-                    onTap: () => setState(() => _passwordVisible = !_passwordVisible),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Icon(
-                        _passwordVisible
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: Colors.white38, size: 19,
-                      ),
-                    ),
-                  ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Şifrə daxil edin';
-                    if (v.length < 6) return 'Ən az 6 xanə olmalıdır';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 8),
-                // Forgot pass hint (visual)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    'Şifrəni unutmusunuz?',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: const Color(0xFF4CAF50).withValues(alpha: 0.8),
-                      fontWeight: FontWeight.w500,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              _field(ctrl: _emailCtrl, label: 'Email ünvanı', icon: Iconsax.sms,
+                type: TextInputType.emailAddress,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Email daxil edin';
+                  if (!v.contains('@')) return 'Düzgün email daxil edin';
+                  return null;
+                }),
+              const SizedBox(height: 14),
+              _field(ctrl: _passwordCtrl, label: 'Şifrə', icon: Iconsax.lock,
+                obscure: !_passwordVisible,
+                suffix: GestureDetector(
+                  onTap: () => setState(() => _passwordVisible = !_passwordVisible),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Icon(
+                      _passwordVisible ? Iconsax.eye_slash : Iconsax.eye,
+                      color: Colors.white38, size: 19,
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-                // Login button
-                BlocBuilder<AuthBloc, AuthState>(
-                  builder: (_, state) => _loginBtn(state is AuthLoading),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Şifrə daxil edin';
+                  if (v.length < 6) return 'Ən az 6 xanə olmalıdır';
+                  return null;
+                }),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text('Şifrəni unutmusunuz?',
+                  style: TextStyle(fontSize: 12, color: const Color(0xFF4CAF50).withValues(alpha: 0.8), fontWeight: FontWeight.w500)),
+              ),
+              const SizedBox(height: 24),
+              BlocBuilder<AuthBloc, AuthState>(
+                builder: (_, state) => _loginBtn(state is AuthLoading),
+              ),
+              const SizedBox(height: 20),
+              Row(children: [
+                Expanded(child: Container(height: 1, color: Colors.white.withValues(alpha: 0.08))),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('və ya', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.3))),
                 ),
-                const SizedBox(height: 20),
-                // Divider
-                Row(children: [
-                  Expanded(child: Container(height: 1, color: Colors.white.withValues(alpha: 0.08))),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('və ya', style: TextStyle(
-                      fontSize: 12, color: Colors.white.withValues(alpha: 0.3),
-                    )),
-                  ),
-                  Expanded(child: Container(height: 1, color: Colors.white.withValues(alpha: 0.08))),
-                ]),
-                const SizedBox(height: 20),
-                // Register link
-                GestureDetector(
-                  onTap: () => Navigator.of(context).push(_slideRoute(const RegisterScreen())),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.35)),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.person_add_outlined, color: Color(0xFF4CAF50), size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          'Yeni hesab yarat',
-                          style: TextStyle(
-                            color: Color(0xFF4CAF50),
-                            fontSize: 14, fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Demo hint
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                Expanded(child: Container(height: 1, color: Colors.white.withValues(alpha: 0.08))),
+              ]),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(_slideRoute(const RegisterScreen())),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: const Color(0xFF4CAF50).withValues(alpha: 0.18)),
+                    border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.35)),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Row(children: [
-                    Icon(Icons.info_outline, size: 14,
-                        color: const Color(0xFF4CAF50).withValues(alpha: 0.8)),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Demo: demo@meta.az  /  123456',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: const Color(0xFF81C784).withValues(alpha: 0.85),
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ]),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Iconsax.user_add, color: Color(0xFF4CAF50), size: 18),
+                      SizedBox(width: 8),
+                      Text('Yeni hesab yarat',
+                        style: TextStyle(color: Color(0xFF4CAF50), fontSize: 14, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ]),
           ),
         ),
       ),
@@ -407,57 +327,37 @@ class _LoginScreenState extends State<LoginScreen>
         duration: const Duration(milliseconds: 200),
         height: 52,
         decoration: BoxDecoration(
-          gradient: loading
-              ? null
-              : const LinearGradient(
-                  colors: [Color(0xFF56D97B), Color(0xFF2E7D32)],
-                  begin: Alignment.centerLeft, end: Alignment.centerRight,
-                ),
+          gradient: loading ? null : const LinearGradient(
+            colors: [Color(0xFF56D97B), Color(0xFF2E7D32)],
+            begin: Alignment.centerLeft, end: Alignment.centerRight,
+          ),
           color: loading ? Colors.white12 : null,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: loading
-              ? []
-              : [
-                  BoxShadow(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.45),
-                    blurRadius: 18, offset: const Offset(0, 7),
-                  ),
-                ],
+          boxShadow: loading ? [] : [
+            BoxShadow(color: const Color(0xFF4CAF50).withValues(alpha: 0.45), blurRadius: 18, offset: const Offset(0, 7)),
+          ],
         ),
         child: Center(
           child: loading
-              ? const SizedBox(
-                  width: 22, height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation(Colors.white60),
-                  ))
-              : const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.login_rounded, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'DAXİL OL',
-                      style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w800,
-                        fontSize: 15, letterSpacing: 2.5,
-                      ),
-                    ),
-                  ],
-                ),
+            ? const SizedBox(width: 22, height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation(Colors.white60)))
+            : const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Iconsax.login, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('DAXİL OL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15, letterSpacing: 2.5)),
+              ]),
         ),
       ),
     );
   }
 
   Route _slideRoute(Widget page) => PageRouteBuilder(
-        pageBuilder: (_, __, ___) => page,
-        transitionsBuilder: (_, a, __, child) => SlideTransition(
-          position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-              .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
-          child: child,
-        ),
-        transitionDuration: const Duration(milliseconds: 320),
-      );
+    pageBuilder: (_, __, ___) => page,
+    transitionsBuilder: (_, a, __, child) => SlideTransition(
+      position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+        .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
+      child: child,
+    ),
+    transitionDuration: const Duration(milliseconds: 320),
+  );
 }

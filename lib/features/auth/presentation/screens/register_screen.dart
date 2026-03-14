@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
 import 'package:meta_tracking/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:meta_tracking/main.dart';
+import 'package:meta_tracking/features/home/presentation/screens/home_page.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -11,13 +12,12 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen>
-    with TickerProviderStateMixin {
-  final _nameCtrl     = TextEditingController();
-  final _emailCtrl    = TextEditingController();
-  final _passCtrl     = TextEditingController();
-  final _confirmCtrl  = TextEditingController();
-  final _formKey      = GlobalKey<FormState>();
+class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStateMixin {
+  final _nameCtrl    = TextEditingController();
+  final _emailCtrl   = TextEditingController();
+  final _passCtrl    = TextEditingController();
+  final _confirmCtrl = TextEditingController();
+  final _formKey     = GlobalKey<FormState>();
   bool _passVisible    = false;
   bool _confirmVisible = false;
 
@@ -35,17 +35,11 @@ class _RegisterScreenState extends State<RegisterScreen>
       statusBarIconBrightness: Brightness.light,
     ));
     AppLogger.ekranAcildi('Register Screen');
-
-    _bgCtrl   = AnimationController(vsync: this, duration: const Duration(seconds: 8))
-      ..repeat(reverse: true);
+    _bgCtrl   = AnimationController(vsync: this, duration: const Duration(seconds: 8))..repeat(reverse: true);
     _cardCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
-
-    _bgAnim      = CurvedAnimation(parent: _bgCtrl, curve: Curves.easeInOut);
-    _cardY       = Tween<double>(begin: 48.0, end: 0.0).animate(
-        CurvedAnimation(parent: _cardCtrl, curve: Curves.easeOutCubic));
-    _cardOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: _cardCtrl, curve: Curves.easeIn));
-
+    _bgAnim   = CurvedAnimation(parent: _bgCtrl, curve: Curves.easeInOut);
+    _cardY    = Tween<double>(begin: 48.0, end: 0.0).animate(CurvedAnimation(parent: _cardCtrl, curve: Curves.easeOutCubic));
+    _cardOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _cardCtrl, curve: Curves.easeIn));
     _cardCtrl.forward();
   }
 
@@ -59,7 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   void _register() {
     if (!_formKey.currentState!.validate()) return;
-    AppLogger.melumat('REGISTER', 'Qeydiyyat formu göndərilir');
+    AppLogger.melumat('REGISTER', 'Qeydiyyat: ${_emailCtrl.text.trim()}');
     context.read<AuthBloc>().add(RegisterEvent(
       name: _nameCtrl.text.trim(),
       email: _emailCtrl.text.trim(),
@@ -72,12 +66,11 @@ class _RegisterScreenState extends State<RegisterScreen>
     return BlocListener<AuthBloc, AuthState>(
       listener: (ctx, state) {
         if (state is AuthAuthenticated) {
-          Navigator.of(ctx).pushAndRemoveUntil(
-            _fadeRoute(const HomePage()), (_) => false);
+          Navigator.of(ctx).pushAndRemoveUntil(_fadeRoute(const HomePage()), (_) => false);
         } else if (state is AuthError) {
           ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
             content: Row(children: [
-              const Icon(Icons.error_outline, color: Colors.white, size: 18),
+              const Icon(Iconsax.warning_2, color: Colors.white, size: 18),
               const SizedBox(width: 8),
               Expanded(child: Text(state.message)),
             ]),
@@ -107,213 +100,142 @@ class _RegisterScreenState extends State<RegisterScreen>
             child: child,
           ),
           child: SafeArea(
-            child: Column(
-              children: [
-                // ── Top bar ─────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: Row(
-                    children: [
-                      // Back button
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          width: 40, height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.1)),
-                          ),
-                          child: const Icon(Icons.arrow_back_ios_new_rounded,
-                              color: Colors.white, size: 15),
-                        ),
+            child: Column(children: [
+              // Top bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Row(children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                       ),
-                      const Spacer(),
-                      Text(
-                        'YENİ HESAB',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.75),
-                          fontSize: 13, fontWeight: FontWeight.w700,
-                          letterSpacing: 3,
-                        ),
-                      ),
-                      const Spacer(),
-                      const SizedBox(width: 40), // balance
-                    ],
-                  ),
-                ),
-
-                // ── Scrollable content ───────────────────────────────────
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                    child: AnimatedBuilder(
-                      animation: _cardCtrl,
-                      builder: (_, child) => Transform.translate(
-                        offset: Offset(0, _cardY.value),
-                        child: Opacity(opacity: _cardOpacity.value, child: child),
-                      ),
-                      child: Column(
-                        children: [
-                          // Icon + title
-                          Container(
-                            width: 72, height: 72,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF56D97B), Color(0xFF1B5E20)],
-                                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
-                                  blurRadius: 22, spreadRadius: 3,
-                                ),
-                              ],
-                            ),
-                            child: const Icon(Icons.person_add_rounded,
-                                size: 34, color: Colors.white),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Hesab yaradın',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 22, fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Məlumatlarınızı daxil edin',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.38),
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Form card
-                          Container(
-                            padding: const EdgeInsets.all(22),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.04),
-                              borderRadius: BorderRadius.circular(26),
-                              border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.09)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.3),
-                                  blurRadius: 40, offset: const Offset(0, 16),
-                                ),
-                              ],
-                            ),
-                            child: Form(
-                              key: _formKey,
-                              child: Column(children: [
-                                _field(
-                                  ctrl: _nameCtrl, label: 'Ad Soyad',
-                                  icon: Icons.person_outline_rounded,
-                                  validator: (v) => (v == null || v.isEmpty)
-                                      ? 'Ad daxil edin' : null,
-                                ),
-                                const SizedBox(height: 12),
-                                _field(
-                                  ctrl: _emailCtrl, label: 'Email ünvanı',
-                                  icon: Icons.alternate_email_rounded,
-                                  type: TextInputType.emailAddress,
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) return 'Email daxil edin';
-                                    if (!v.contains('@')) return 'Düzgün email daxil edin';
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 12),
-                                _field(
-                                  ctrl: _passCtrl, label: 'Şifrə',
-                                  icon: Icons.lock_outline_rounded,
-                                  obscure: !_passVisible,
-                                  suffix: GestureDetector(
-                                    onTap: () => setState(() => _passVisible = !_passVisible),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Icon(
-                                        _passVisible
-                                            ? Icons.visibility_off_outlined
-                                            : Icons.visibility_outlined,
-                                        color: Colors.white38, size: 18,
-                                      ),
-                                    ),
-                                  ),
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) return 'Şifrə daxil edin';
-                                    if (v.length < 6) return 'Ən az 6 xanə olmalıdır';
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 12),
-                                _field(
-                                  ctrl: _confirmCtrl, label: 'Şifrəni təkrar daxil edin',
-                                  icon: Icons.lock_outline_rounded,
-                                  obscure: !_confirmVisible,
-                                  suffix: GestureDetector(
-                                    onTap: () => setState(() => _confirmVisible = !_confirmVisible),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Icon(
-                                        _confirmVisible
-                                            ? Icons.visibility_off_outlined
-                                            : Icons.visibility_outlined,
-                                        color: Colors.white38, size: 18,
-                                      ),
-                                    ),
-                                  ),
-                                  validator: (v) {
-                                    if (v != _passCtrl.text) return 'Şifrələr uyğun deyil';
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 22),
-                                BlocBuilder<AuthBloc, AuthState>(
-                                  builder: (_, state) => _registerBtn(state is AuthLoading),
-                                ),
-                              ]),
-                            ),
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          // Login link
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Artıq hesabınız var? ',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.45),
-                                  fontSize: 13,
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () => Navigator.pop(context),
-                                child: const Text(
-                                  'Daxil Ol',
-                                  style: TextStyle(
-                                    color: Color(0xFF4CAF50),
-                                    fontSize: 13, fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                      ),
+                      child: const Icon(Iconsax.arrow_left, color: Colors.white, size: 18),
                     ),
                   ),
+                  const Spacer(),
+                  Text('YENİ HESAB', style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 3,
+                  )),
+                  const Spacer(),
+                  const SizedBox(width: 40),
+                ]),
+              ),
+              // Form
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                  child: AnimatedBuilder(
+                    animation: _cardCtrl,
+                    builder: (_, child) => Transform.translate(
+                      offset: Offset(0, _cardY.value),
+                      child: Opacity(opacity: _cardOpacity.value, child: child),
+                    ),
+                    child: Column(children: [
+                      // Icon
+                      Container(
+                        width: 72, height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF56D97B), Color(0xFF1B5E20)],
+                            begin: Alignment.topLeft, end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(color: const Color(0xFF4CAF50).withValues(alpha: 0.4), blurRadius: 22, spreadRadius: 3),
+                          ],
+                        ),
+                        child: const Icon(Iconsax.user_add, size: 34, color: Colors.white),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Hesab yaradın', style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9), fontSize: 22, fontWeight: FontWeight.w800,
+                      )),
+                      const SizedBox(height: 4),
+                      Text('Məlumatlarınızı daxil edin', style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.38), fontSize: 13,
+                      )),
+                      const SizedBox(height: 24),
+                      // Form card
+                      Container(
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(26),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 40, offset: const Offset(0, 16)),
+                          ],
+                        ),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(children: [
+                            _field(ctrl: _nameCtrl, label: 'Ad Soyad', icon: Iconsax.user,
+                              validator: (v) => (v == null || v.isEmpty) ? 'Ad daxil edin' : null),
+                            const SizedBox(height: 12),
+                            _field(ctrl: _emailCtrl, label: 'Email ünvanı', icon: Iconsax.sms,
+                              type: TextInputType.emailAddress,
+                              validator: (v) {
+                                if (v == null || v.isEmpty) return 'Email daxil edin';
+                                if (!v.contains('@')) return 'Düzgün email daxil edin';
+                                return null;
+                              }),
+                            const SizedBox(height: 12),
+                            _field(ctrl: _passCtrl, label: 'Şifrə', icon: Iconsax.lock,
+                              obscure: !_passVisible,
+                              suffix: GestureDetector(
+                                onTap: () => setState(() => _passVisible = !_passVisible),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Icon(_passVisible ? Iconsax.eye_slash : Iconsax.eye, color: Colors.white38, size: 18),
+                                ),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.isEmpty) return 'Şifrə daxil edin';
+                                if (v.length < 6) return 'Ən az 6 xanə olmalıdır';
+                                return null;
+                              }),
+                            const SizedBox(height: 12),
+                            _field(ctrl: _confirmCtrl, label: 'Şifrəni təkrar daxil edin', icon: Iconsax.lock,
+                              obscure: !_confirmVisible,
+                              suffix: GestureDetector(
+                                onTap: () => setState(() => _confirmVisible = !_confirmVisible),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Icon(_confirmVisible ? Iconsax.eye_slash : Iconsax.eye, color: Colors.white38, size: 18),
+                                ),
+                              ),
+                              validator: (v) {
+                                if (v != _passCtrl.text) return 'Şifrələr uyğun deyil';
+                                return null;
+                              }),
+                            const SizedBox(height: 22),
+                            BlocBuilder<AuthBloc, AuthState>(
+                              builder: (_, state) => _registerBtn(state is AuthLoading),
+                            ),
+                          ]),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text('Artıq hesabınız var? ',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 13)),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: const Text('Daxil Ol',
+                            style: TextStyle(color: Color(0xFF4CAF50), fontSize: 13, fontWeight: FontWeight.w700)),
+                        ),
+                      ]),
+                    ]),
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ]),
           ),
         ),
       ),
@@ -376,54 +298,33 @@ class _RegisterScreenState extends State<RegisterScreen>
         duration: const Duration(milliseconds: 200),
         height: 50,
         decoration: BoxDecoration(
-          gradient: loading
-              ? null
-              : const LinearGradient(
-                  colors: [Color(0xFF56D97B), Color(0xFF2E7D32)],
-                  begin: Alignment.centerLeft, end: Alignment.centerRight,
-                ),
+          gradient: loading ? null : const LinearGradient(
+            colors: [Color(0xFF56D97B), Color(0xFF2E7D32)],
+            begin: Alignment.centerLeft, end: Alignment.centerRight,
+          ),
           color: loading ? Colors.white12 : null,
           borderRadius: BorderRadius.circular(13),
-          boxShadow: loading
-              ? []
-              : [
-                  BoxShadow(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
-                    blurRadius: 16, offset: const Offset(0, 6),
-                  ),
-                ],
+          boxShadow: loading ? [] : [
+            BoxShadow(color: const Color(0xFF4CAF50).withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6)),
+          ],
         ),
         child: Center(
           child: loading
-              ? const SizedBox(
-                  width: 21, height: 21,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation(Colors.white60),
-                  ))
-              : const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.person_add_rounded, color: Colors.white, size: 17),
-                    SizedBox(width: 8),
-                    Text(
-                      'QEYDİYYATDAN KEÇ',
-                      style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w800,
-                        fontSize: 14, letterSpacing: 2,
-                      ),
-                    ),
-                  ],
-                ),
+            ? const SizedBox(width: 21, height: 21,
+                child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation(Colors.white60)))
+            : const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Iconsax.user_add, color: Colors.white, size: 17),
+                SizedBox(width: 8),
+                Text('QEYDİYYATDAN KEÇ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 2)),
+              ]),
         ),
       ),
     );
   }
 
   Route _fadeRoute(Widget page) => PageRouteBuilder(
-        pageBuilder: (_, __, ___) => page,
-        transitionsBuilder: (_, a, __, child) =>
-            FadeTransition(opacity: a, child: child),
-        transitionDuration: const Duration(milliseconds: 400),
-      );
+    pageBuilder: (_, __, ___) => page,
+    transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
+    transitionDuration: const Duration(milliseconds: 400),
+  );
 }
