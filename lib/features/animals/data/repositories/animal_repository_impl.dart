@@ -1,19 +1,23 @@
 import 'package:meta_tracking/core/logger/app_logger.dart';
-import '../../domain/entities/animal_entity.dart';
-import '../../domain/repositories/animal_repository.dart';
-import '../datasources/animal_remote_datasource.dart';
-import '../models/animal_model.dart';
+import 'package:meta_tracking/features/animals/data/datasources/animal_remote_datasource.dart';
+import 'package:meta_tracking/features/animals/data/models/animal_model.dart';
+import 'package:meta_tracking/features/animals/domain/entities/animal_entity.dart';
+import 'package:meta_tracking/features/animals/domain/repositories/animal_repository.dart';
 
 class AnimalRepositoryImpl implements AnimalRepository {
   final AnimalRemoteDataSource _remote;
 
   AnimalRepositoryImpl(this._remote);
 
+  // ── Watch ─────────────────────────────────────────────────────────────────
+
   @override
   Stream<List<AnimalEntity>> watchAnimals(String ownerId) {
-    AppLogger.melumat('ANIMAL REPO', 'watchAnimals çağırıldı');
+    AppLogger.melumat('ANIMAL REPO', 'watchAnimals: $ownerId');
     return _remote.watchAnimals(ownerId);
   }
+
+  // ── Add ───────────────────────────────────────────────────────────────────
 
   @override
   Future<AnimalEntity> addAnimal({
@@ -36,10 +40,13 @@ class AnimalRepositoryImpl implements AnimalRepository {
       notes: notes,
       zoneId: zoneId,
       zoneName: zoneName,
+      zoneStatus: AnimalZoneStatus.outside,
       createdAt: DateTime.now(),
     );
     return await _remote.addAnimal(model);
   }
+
+  // ── Update ────────────────────────────────────────────────────────────────
 
   @override
   Future<void> updateAnimal(AnimalEntity animal) async {
@@ -60,11 +67,15 @@ class AnimalRepositoryImpl implements AnimalRepository {
     await _remote.updateAnimal(model);
   }
 
+  // ── Delete ────────────────────────────────────────────────────────────────
+
   @override
   Future<void> deleteAnimal(String animalId) async {
     AppLogger.heyvanEmeliyyati('Heyvan silinir', animalId);
     await _remote.deleteAnimal(animalId);
   }
+
+  // ── Location ──────────────────────────────────────────────────────────────
 
   @override
   Stream<Map<String, dynamic>?> watchLocation(String animalId) =>
@@ -79,4 +90,15 @@ class AnimalRepositoryImpl implements AnimalRepository {
     double battery,
   ) =>
       _remote.updateLocation(animalId, lat, lng, speed, battery);
+
+  // ── Zone Status ───────────────────────────────────────────────────────────
+
+  @override
+  Future<void> updateZoneStatus(
+    String animalId,
+    AnimalZoneStatus status,
+    String? zoneId,
+    String? zoneName,
+  ) =>
+      _remote.updateZoneStatus(animalId, status, zoneId, zoneName);
 }

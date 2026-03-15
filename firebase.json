@@ -1,1 +1,27 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"meta-tracking-animals","appId":"1:667679331975:android:22830ae96e52f3fba9ca22","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"meta-tracking-animals","configurations":{"android":"1:667679331975:android:22830ae96e52f3fba9ca22","ios":"1:667679331975:ios:123f6fe371e98574a9ca22","web":"1:667679331975:web:e026e56d4783c6b3a9ca22"}}}}}}
+﻿{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "meta-tracking-animals",
+          "appId": "1:667679331975:android:22830ae96e52f3fba9ca22",
+          "fileOutput": "android/app/google-services.json"
+        }
+      }
+    },
+    "dart": {
+      "lib/firebase_options.dart": {
+        "projectId": "meta-tracking-animals",
+        "configurations": {
+          "android": "1:667679331975:android:22830ae96e52f3fba9ca22",
+          "ios": "1:667679331975:ios:123f6fe371e98574a9ca22",
+          "web": "1:667679331975:web:e026e56d4783c6b3a9ca22"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

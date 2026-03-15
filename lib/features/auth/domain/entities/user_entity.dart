@@ -5,12 +5,18 @@ class UserEntity {
   final String? avatarUrl;
   final DateTime createdAt;
 
+  /// İstifadəçinin özü seçdiyi qrup adı
+  /// Məsələn: "Naxır", "Sürü", "Otlaq", "Qrup", "İnəklər" ...
+  /// Default: "Naxır"
+  final String herdGroupLabel;
+
   const UserEntity({
     required this.id,
     required this.name,
     required this.email,
     this.avatarUrl,
     required this.createdAt,
+    this.herdGroupLabel = 'Naxır',
   });
 
   UserEntity copyWith({
@@ -19,6 +25,7 @@ class UserEntity {
     String? email,
     String? avatarUrl,
     DateTime? createdAt,
+    String? herdGroupLabel,
   }) {
     return UserEntity(
       id: id ?? this.id,
@@ -26,6 +33,7 @@ class UserEntity {
       email: email ?? this.email,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       createdAt: createdAt ?? this.createdAt,
+      herdGroupLabel: herdGroupLabel ?? this.herdGroupLabel,
     );
   }
 }

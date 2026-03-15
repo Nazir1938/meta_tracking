@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:meta_tracking/features/zones/domain/entities/zone.dart';
+import 'package:meta_tracking/features/zones/domain/entities/zone_entity.dart';
 import 'package:meta_tracking/features/tracking/domain/entities/animal_location.dart';
 
 abstract class ZoneEvent extends Equatable {
@@ -8,18 +8,23 @@ abstract class ZoneEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Bütün zonaları yüklə / dinlə
+/// Zonaları Firestore-dan yüklə və stream-i dinlə
 class LoadZonesEvent extends ZoneEvent {
-  const LoadZonesEvent();
+  /// Zonanın sahibi — AuthBloc-dan gəlir
+  final String? ownerId;
+  const LoadZonesEvent({this.ownerId});
+  @override
+  List<Object?> get props => [ownerId];
 }
 
-/// Yeni zona yarat
+/// Yeni zona yarat (Firestore-a yaz)
 class CreateZoneEvent extends ZoneEvent {
   final String name;
   final double latitude;
   final double longitude;
   final double radiusInMeters;
   final String? description;
+  final String? ownerId;
 
   const CreateZoneEvent({
     required this.name,
@@ -27,13 +32,14 @@ class CreateZoneEvent extends ZoneEvent {
     required this.longitude,
     required this.radiusInMeters,
     this.description,
+    this.ownerId,
   });
 
   @override
-  List<Object?> get props => [name, latitude, longitude, radiusInMeters];
+  List<Object?> get props => [name, latitude, longitude, radiusInMeters, ownerId];
 }
 
-/// Mövcud zonayı redaktə et
+/// Mövcud zonayı yenilə
 class UpdateZoneEvent extends ZoneEvent {
   final ZoneEntity zone;
   const UpdateZoneEvent(this.zone);
@@ -49,7 +55,7 @@ class DeleteZoneEvent extends ZoneEvent {
   List<Object?> get props => [zoneId];
 }
 
-/// Zonanın aktiv/deaktiv vəziyyətini dəyişdir
+/// Zona aktiv/deaktiv et
 class ToggleZoneActiveEvent extends ZoneEvent {
   final String zoneId;
   final bool isActive;

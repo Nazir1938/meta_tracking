@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:meta_tracking/features/animals/domain/entities/animal_entity.dart';
-import 'package:meta_tracking/features/zones/domain/entities/zone.dart';
+import 'package:meta_tracking/features/zones/domain/entities/zone_entity.dart';
 import 'package:meta_tracking/features/zones/presentation/bloc/zone_bloc.dart';
 import 'package:meta_tracking/features/map/presentation/screens/map_screen.dart';
 import 'package:meta_tracking/features/zones/presentation/event/zone_event.dart';

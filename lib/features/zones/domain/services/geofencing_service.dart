@@ -1,6 +1,6 @@
 import 'dart:math' show cos, sqrt, pow, pi, atan2, sin;
 import 'package:meta_tracking/features/tracking/domain/entities/animal_location.dart';
-import '../entities/zone.dart';
+import '../entities/zone_entity.dart';
 
 class GeofencingService {
   static double calculateDistance(

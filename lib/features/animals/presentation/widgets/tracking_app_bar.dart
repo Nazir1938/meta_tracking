@@ -1,149 +1,188 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:meta_tracking/features/auth/domain/entities/user_entity.dart';
 import 'package:meta_tracking/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:meta_tracking/features/notifications/presentation/bloc/notification_bloc.dart';
+import 'package:meta_tracking/features/notifications/presentation/screens/notifications_screen.dart';
 
 class TrackingAppBar extends StatelessWidget {
   final int animalCount;
   final int alertCount;
-  final bool isSelectMode;
-  final VoidCallback onToggleSelectMode;
-  final VoidCallback onFilterTap;
 
   const TrackingAppBar({
     super.key,
     required this.animalCount,
     required this.alertCount,
-    required this.isSelectMode,
-    required this.onToggleSelectMode,
-    required this.onFilterTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, authState) {
-        final user = authState is AuthAuthenticated ? authState.user : null;
+    final top = MediaQuery.of(context).padding.top;
+
+    return BlocBuilder<NotificationBloc, NotificationState>(
+      builder: (context, notifState) {
+        final unread =
+            notifState is NotificationLoaded ? notifState.unreadCount : 0;
+
+        // İstifadəçi məlumatlarını AuthBloc-dan al
+        final authState = context.read<AuthBloc>().state;
+        final String userName = authState is AuthAuthenticated
+            ? (authState.user.name)
+            : 'İstifadəçi';
+        final String? photoUrl =
+            authState is AuthAuthenticated ? authState.user.avatarUrl : null;
+
         return Container(
           color: Colors.white,
           padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + 10,
-            left: 20,
-            right: 20,
-            bottom: 14,
+            top: top + 12,
+            left: 16,
+            right: 16,
+            bottom: 12,
           ),
-          child: Row(children: [
-            if (user != null) _buildAvatar(user),
-            if (user != null) const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (user != null)
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // ── Sol: istifadəçi foto + ad ──────────────────────────────────
+              _buildAvatar(photoUrl, userName),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      'Salam, ${user.name.split(' ').first}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                    ),
-                  const Text('Heyvanlarım',
+                      _greeting(),
                       style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1A1A2E),
-                          letterSpacing: -0.5)),
-                  Text(
-                    '$animalCount heyvan'
-                    '${alertCount > 0 ? ' • $alertCount alert' : ''}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-                  ),
-                ],
-              ),
-            ),
-            if (alertCount > 0) ...[
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF4444).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: const Color(0xFFFF4444).withValues(alpha: 0.3)),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Iconsax.warning_2,
-                      color: Color(0xFFFF4444), size: 13),
-                  const SizedBox(width: 4),
-                  Text('$alertCount',
+                        fontSize: 11,
+                        color: Colors.grey[500],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      userName,
                       style: const TextStyle(
-                          color: Color(0xFFFF4444),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700)),
-                ]),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A1A2E),
+                        height: 1.2,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 8),
+
+              // ── Alert badge ────────────────────────────────────────────────
+              if (alertCount > 0) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF4444).withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: const Color(0xFFFF4444).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Iconsax.warning_2,
+                        size: 11, color: Color(0xFFFF4444)),
+                    const SizedBox(width: 3),
+                    Text(
+                      '$alertCount',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFFFF4444),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ]),
+                ),
+                const SizedBox(width: 8),
+              ],
+
+              // ── Bildiriş ikonu ─────────────────────────────────────────────
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (_) => const NotificationsScreen()),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F7FA),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Iconsax.notification,
+                        size: 20,
+                        color: Color(0xFF1A1A2E),
+                      ),
+                    ),
+                    if (unread > 0)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFF4444),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
-            GestureDetector(
-              onTap: onToggleSelectMode,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: isSelectMode
-                      ? const Color(0xFF2ECC71).withValues(alpha: 0.1)
-                      : const Color(0xFFF5F7FA),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelectMode
-                        ? const Color(0xFF2ECC71)
-                        : Colors.grey.shade200,
-                  ),
-                ),
-                child: Text(
-                  isSelectMode ? 'Bitir' : 'Seç',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isSelectMode
-                        ? const Color(0xFF2ECC71)
-                        : Colors.grey[600],
-                  ),
-                ),
-              ),
-            ),
-          ]),
+          ),
         );
       },
     );
   }
 
-  Widget _buildAvatar(UserEntity user) {
-    final initials = user.name.isNotEmpty
-        ? user.name
-            .split(' ')
-            .map((w) => w.isNotEmpty ? w[0] : '')
-            .take(2)
-            .join()
-            .toUpperCase()
-        : '?';
+  Widget _buildAvatar(String? photoUrl, String name) {
+    final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
     return Container(
-      width: 42,
-      height: 42,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFF56D97B), Color(0xFF27AE60)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFF2ECC71).withValues(alpha: 0.15),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: photoUrl != null && photoUrl.isNotEmpty
+          ? Image.network(
+              photoUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _initialsWidget(initials),
+            )
+          : _initialsWidget(initials),
+    );
+  }
+
+  Widget _initialsWidget(String initials) {
+    return Center(
+      child: Text(
+        initials,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF2ECC71),
         ),
       ),
-      child: Center(
-        child: Text(initials,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w800)),
-      ),
     );
+  }
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Sabahınız xeyir 👋';
+    if (hour < 18) return 'Günortanız xeyir 👋';
+    return 'Axşamınız xeyir 👋';
   }
 }

@@ -5,7 +5,8 @@ import 'package:equatable/equatable.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
 import '../../domain/entities/user_entity.dart';
 
-// Events
+// ─── Events ───────────────────────────────────────────────────────────────────
+
 abstract class AuthEvent extends Equatable {
   const AuthEvent();
   @override
@@ -35,7 +36,24 @@ class LogoutEvent extends AuthEvent {
   const LogoutEvent();
 }
 
-// States
+/// Ad, avatar, herdGroupLabel yenilə — Firestore-a yaz
+class UpdateProfileEvent extends AuthEvent {
+  final String? name;
+  final String? avatarUrl;
+  final String? herdGroupLabel;
+
+  const UpdateProfileEvent({
+    this.name,
+    this.avatarUrl,
+    this.herdGroupLabel,
+  });
+
+  @override
+  List<Object?> get props => [name, avatarUrl, herdGroupLabel];
+}
+
+// ─── States ───────────────────────────────────────────────────────────────────
+
 abstract class AuthState extends Equatable {
   const AuthState();
   @override
@@ -68,10 +86,18 @@ class AuthError extends AuthState {
   List<Object?> get props => [message];
 }
 
-// BLoC
+class AuthProfileUpdated extends AuthState {
+  final UserEntity user;
+  const AuthProfileUpdated(this.user);
+  @override
+  List<Object?> get props => [user];
+}
+
+// ─── BLoC ─────────────────────────────────────────────────────────────────────
+
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
+  final _db = FirebaseFirestore.instance;
 
   AuthBloc() : super(const AuthInitial()) {
     AppLogger.melumat('AUTH BLOC', 'AuthBloc işə salındı');
@@ -79,7 +105,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginEvent>(_onLogin);
     on<RegisterEvent>(_onRegister);
     on<LogoutEvent>(_onLogout);
+    on<UpdateProfileEvent>(_onUpdateProfile);
   }
+
+  // ── Check ─────────────────────────────────────────────────────────────────
 
   Future<void> _onCheck(CheckAuthEvent event, Emitter<AuthState> emit) async {
     AppLogger.blocHadise('AuthBloc', 'CheckAuthEvent');
@@ -98,6 +127,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
+  // ── Login ─────────────────────────────────────────────────────────────────
+
   Future<void> _onLogin(LoginEvent event, Emitter<AuthState> emit) async {
     AppLogger.blocHadise('AuthBloc', 'LoginEvent: ${event.email}');
     emit(const AuthLoading());
@@ -111,9 +142,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthAuthenticated(entity!));
     } on FirebaseAuthException catch (e) {
       AppLogger.xeta('AUTH BLOC', 'Login xətası: ${e.code}');
-      emit(AuthError(_parseAuthError(e.code)));
+      emit(AuthError(_parseError(e.code)));
     }
   }
+
+  // ── Register ──────────────────────────────────────────────────────────────
 
   Future<void> _onRegister(RegisterEvent event, Emitter<AuthState> emit) async {
     AppLogger.blocHadise('AuthBloc', 'RegisterEvent: ${event.email}');
@@ -125,25 +158,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       await cred.user!.updateDisplayName(event.name);
 
-      final userEntity = UserEntity(
+      final entity = UserEntity(
         id: cred.user!.uid,
         name: event.name,
         email: event.email,
         createdAt: DateTime.now(),
+        herdGroupLabel: 'Naxır',
       );
-      await _firestore.collection('users').doc(cred.user!.uid).set({
+
+      await _db.collection('users').doc(cred.user!.uid).set({
         'name': event.name,
         'email': event.email,
+        'herdGroupLabel': 'Naxır',
         'createdAt': Timestamp.now(),
       });
 
       AppLogger.ugur('AUTH BLOC', 'Qeydiyyat uğurlu: ${event.name}');
-      emit(AuthAuthenticated(userEntity));
+      emit(AuthAuthenticated(entity));
     } on FirebaseAuthException catch (e) {
       AppLogger.xeta('AUTH BLOC', 'Qeydiyyat xətası: ${e.code}');
-      emit(AuthError(_parseAuthError(e.code)));
+      emit(AuthError(_parseError(e.code)));
     }
   }
+
+  // ── Logout ────────────────────────────────────────────────────────────────
 
   Future<void> _onLogout(LogoutEvent event, Emitter<AuthState> emit) async {
     AppLogger.blocHadise('AuthBloc', 'LogoutEvent');
@@ -152,17 +190,63 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthUnauthenticated());
   }
 
+  // ── Update Profile ────────────────────────────────────────────────────────
+
+  Future<void> _onUpdateProfile(
+      UpdateProfileEvent event, Emitter<AuthState> emit) async {
+    AppLogger.blocHadise('AuthBloc', 'UpdateProfileEvent');
+
+    final current = state;
+    if (current is! AuthAuthenticated) return;
+
+    try {
+      final updates = <String, dynamic>{
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (event.name != null && event.name!.isNotEmpty) {
+        updates['name'] = event.name;
+        await _auth.currentUser?.updateDisplayName(event.name);
+      }
+      if (event.avatarUrl != null) {
+        updates['avatarUrl'] = event.avatarUrl;
+      }
+      if (event.herdGroupLabel != null && event.herdGroupLabel!.isNotEmpty) {
+        updates['herdGroupLabel'] = event.herdGroupLabel;
+      }
+
+      await _db.collection('users').doc(current.user.id).update(updates);
+
+      final updated = current.user.copyWith(
+        name: event.name,
+        avatarUrl: event.avatarUrl,
+        herdGroupLabel: event.herdGroupLabel,
+      );
+
+      AppLogger.ugur('AUTH BLOC', 'Profil yeniləndi: ${updated.name}');
+      emit(AuthAuthenticated(updated));
+      emit(AuthProfileUpdated(updated));
+    } catch (e, st) {
+      AppLogger.xeta('AUTH BLOC', 'Profil yeniləmə xətası',
+          xetaObyekti: e, yiginIzi: st);
+      emit(AuthError('Profil yenilənmədi: $e'));
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
   Future<UserEntity?> _getUserEntity(String uid) async {
     try {
-      final doc = await _firestore.collection('users').doc(uid).get();
+      final doc = await _db.collection('users').doc(uid).get();
       if (!doc.exists) return null;
-      final data = doc.data()!;
+      final d = doc.data()!;
       return UserEntity(
         id: uid,
-        name: data['name'] ?? '',
-        email: data['email'] ?? '',
-        createdAt:
-            (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        name: d['name'] as String? ?? '',
+        email: d['email'] as String? ?? '',
+        avatarUrl: d['avatarUrl'] as String?,
+        herdGroupLabel: d['herdGroupLabel'] as String? ?? 'Naxır',
+        createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       );
     } catch (e) {
       AppLogger.xeta('AUTH BLOC', 'İstifadəçi məlumatı alınmadı',
@@ -171,7 +255,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  String _parseAuthError(String code) {
+  String _parseError(String code) {
     switch (code) {
       case 'user-not-found':
         return 'Bu email ilə istifadəçi tapılmadı';

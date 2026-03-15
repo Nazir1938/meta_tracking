@@ -1,14 +1,50 @@
 import 'dart:async';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
-import 'package:meta_tracking/core/services/local_notification_service.dart';
-import 'package:meta_tracking/features/notifications/data/datasources/notification_datasource.dart';
-import 'package:meta_tracking/features/notifications/data/models/notification_model.dart';
-import 'package:meta_tracking/features/notifications/domain/entities/notification_entity.dart';
-import 'package:uuid/uuid.dart';
 
-// ─── Events ──────────────────────────────────────────────────────────────────
+// ─── Entity ───────────────────────────────────────────────────────────────────
+
+enum NotificationType { zoneAlert, separation, system }
+
+class NotificationEntity extends Equatable {
+  final String id;
+  final String userId;
+  final String title;
+  final String body;
+  final NotificationType type;
+  final bool isRead;
+  final DateTime createdAt;
+  final Map<String, dynamic>? data;
+
+  const NotificationEntity({
+    required this.id,
+    required this.userId,
+    required this.title,
+    required this.body,
+    required this.type,
+    required this.isRead,
+    required this.createdAt,
+    this.data,
+  });
+
+  NotificationEntity copyWith({bool? isRead}) => NotificationEntity(
+        id: id,
+        userId: userId,
+        title: title,
+        body: body,
+        type: type,
+        isRead: isRead ?? this.isRead,
+        createdAt: createdAt,
+        data: data,
+      );
+
+  @override
+  List<Object?> get props => [id, isRead];
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
 
 abstract class NotificationEvent extends Equatable {
   const NotificationEvent();
@@ -23,62 +59,41 @@ class WatchNotificationsEvent extends NotificationEvent {
   List<Object?> get props => [userId];
 }
 
-class MarkAsReadEvent extends NotificationEvent {
-  final String notificationId;
-  const MarkAsReadEvent(this.notificationId);
+class MarkNotificationReadEvent extends NotificationEvent {
+  final String notifId;
+  const MarkNotificationReadEvent(this.notifId);
   @override
-  List<Object?> get props => [notificationId];
+  List<Object?> get props => [notifId];
 }
 
 class MarkAllAsReadEvent extends NotificationEvent {
-  final String userId;
-  const MarkAllAsReadEvent(this.userId);
-  @override
-  List<Object?> get props => [userId];
+  const MarkAllAsReadEvent();
 }
 
-class DeleteNotificationEvent extends NotificationEvent {
-  final String notificationId;
-  const DeleteNotificationEvent(this.notificationId);
-  @override
-  List<Object?> get props => [notificationId];
-}
-
-class AddGeofenceNotificationEvent extends NotificationEvent {
+class AddNotificationEvent extends NotificationEvent {
   final String userId;
-  final String animalId;
-  final String animalName;
-  final String animalEmoji;
-  final String zoneId;
-  final String zoneName;
-  final bool entered;
-  const AddGeofenceNotificationEvent({
+  final String title;
+  final String body;
+  final NotificationType type;
+  final Map<String, dynamic>? data;
+
+  const AddNotificationEvent({
     required this.userId,
-    required this.animalId,
-    required this.animalName,
-    required this.animalEmoji,
-    required this.zoneId,
-    required this.zoneName,
-    required this.entered,
+    required this.title,
+    required this.body,
+    required this.type,
+    this.data,
   });
+  @override
+  List<Object?> get props => [userId, title, type];
 }
 
-class AddBatteryNotificationEvent extends NotificationEvent {
-  final String userId;
-  final String animalId;
-  final String animalName;
-  final String animalEmoji;
-  final int batteryPercent;
-  const AddBatteryNotificationEvent({
-    required this.userId,
-    required this.animalId,
-    required this.animalName,
-    required this.animalEmoji,
-    required this.batteryPercent,
-  });
+class _NotificationsUpdatedEvent extends NotificationEvent {
+  final List<NotificationEntity> notifications;
+  const _NotificationsUpdatedEvent(this.notifications);
 }
 
-// ─── States ──────────────────────────────────────────────────────────────────
+// ─── States ───────────────────────────────────────────────────────────────────
 
 abstract class NotificationState extends Equatable {
   const NotificationState();
@@ -90,14 +105,15 @@ class NotificationInitial extends NotificationState {
   const NotificationInitial();
 }
 
-class NotificationLoading extends NotificationState {
-  const NotificationLoading();
-}
-
 class NotificationLoaded extends NotificationState {
   final List<NotificationEntity> notifications;
+
   const NotificationLoaded(this.notifications);
+
   int get unreadCount => notifications.where((n) => !n.isRead).length;
+  List<NotificationEntity> get unread =>
+      notifications.where((n) => !n.isRead).toList();
+
   @override
   List<Object?> get props => [notifications];
 }
@@ -109,136 +125,144 @@ class NotificationError extends NotificationState {
   List<Object?> get props => [message];
 }
 
-// ─── BLoC ────────────────────────────────────────────────────────────────────
+// ─── BLoC ─────────────────────────────────────────────────────────────────────
 
-class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
-  final NotificationDataSource _ds = NotificationDataSource();
-  final LocalNotificationService _localNotif = LocalNotificationService();
-  final _uuid = const Uuid();
-  StreamSubscription? _sub;
+class NotificationBloc
+    extends Bloc<NotificationEvent, NotificationState> {
+  final FirebaseFirestore _db;
+  StreamSubscription<List<NotificationEntity>>? _sub;
 
-  NotificationBloc() : super(const NotificationInitial()) {
-    AppLogger.melumat('NOTIFICATION BLOC', 'NotificationBloc işə salındı');
-    _localNotif.initialize();
+  NotificationBloc({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance,
+        super(const NotificationInitial()) {
+    AppLogger.melumat('NOTIF BLOC', 'NotificationBloc işə salındı');
 
     on<WatchNotificationsEvent>(_onWatch);
-    on<MarkAsReadEvent>(_onMarkRead);
-    on<MarkAllAsReadEvent>(_onMarkAllRead);
-    on<DeleteNotificationEvent>(_onDelete);
-    on<AddGeofenceNotificationEvent>(_onAddGeofence);
-    on<AddBatteryNotificationEvent>(_onAddBattery);
+    on<_NotificationsUpdatedEvent>(_onUpdated);
+    on<MarkNotificationReadEvent>(_onMarkRead);
+    on<MarkAllAsReadEvent>(_onMarkAll);
+    on<AddNotificationEvent>(_onAdd);
   }
+
+  // ── Watch ─────────────────────────────────────────────────────────────────
 
   Future<void> _onWatch(
       WatchNotificationsEvent event, Emitter<NotificationState> emit) async {
-    AppLogger.blocHadise(
-        'NotificationBloc', 'WatchNotificationsEvent: ${event.userId}');
-    emit(const NotificationLoading());
+    AppLogger.blocHadise('NotifBloc', 'WatchNotificationsEvent: ${event.userId}');
     await _sub?.cancel();
 
-    await emit.forEach(
-      _ds.watchNotifications(event.userId),
-      onData: (notifications) {
-        AppLogger.ugur(
-            'NOTIF BLOC', '${notifications.length} bildiriş yükləndi');
-        return NotificationLoaded(notifications);
+    _sub = _db
+        .collection('notifications')
+        .where('userId', isEqualTo: event.userId)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => _fromFirestore(doc))
+            .whereType<NotificationEntity>()
+            .toList())
+        .listen(
+      (notifs) {
+        if (!isClosed) add(_NotificationsUpdatedEvent(notifs));
       },
-      onError: (e, _) {
-        AppLogger.xeta('NOTIF BLOC', 'Bildiriş xətası', xetaObyekti: e);
-        // Index xətası olarsa boş siyahı göstər
-        return const NotificationLoaded([]);
-      },
+      onError: (e) => AppLogger.xeta('NOTIF BLOC', 'Stream xətası', xetaObyekti: e),
     );
   }
 
+  Future<void> _onUpdated(
+      _NotificationsUpdatedEvent event,
+      Emitter<NotificationState> emit) async {
+    emit(NotificationLoaded(event.notifications));
+  }
+
+  // ── Mark read ─────────────────────────────────────────────────────────────
+
   Future<void> _onMarkRead(
-      MarkAsReadEvent event, Emitter<NotificationState> emit) async {
-    try {
-      await _ds.markAsRead(event.notificationId);
-      AppLogger.bildirisEmeliyyati('Oxundu: ${event.notificationId}');
-    } catch (e) {
-      AppLogger.xeta('NOTIF BLOC', 'Oxundu xətası', xetaObyekti: e);
-    }
-  }
-
-  Future<void> _onMarkAllRead(
-      MarkAllAsReadEvent event, Emitter<NotificationState> emit) async {
-    try {
-      await _ds.markAllAsRead(event.userId);
-      AppLogger.bildirisEmeliyyati('Hamısı oxundu');
-    } catch (e) {
-      AppLogger.xeta('NOTIF BLOC', 'Hamısı oxundu xətası', xetaObyekti: e);
-    }
-  }
-
-  Future<void> _onDelete(
-      DeleteNotificationEvent event, Emitter<NotificationState> emit) async {
-    try {
-      await _ds.deleteNotification(event.notificationId);
-      AppLogger.bildirisEmeliyyati('Silindi: ${event.notificationId}');
-    } catch (e) {
-      AppLogger.xeta('NOTIF BLOC', 'Silmə xətası', xetaObyekti: e);
-    }
-  }
-
-  Future<void> _onAddGeofence(AddGeofenceNotificationEvent event,
+      MarkNotificationReadEvent event,
       Emitter<NotificationState> emit) async {
     try {
-      final action = event.entered ? 'daxil oldu' : 'çıxdı';
-      final notif = NotificationModel(
-        id: _uuid.v4(),
-        title: event.entered ? '✅ Zonaya daxil oldu' : '⚠️ Zonadan çıxdı',
-        message: '${event.animalName} "${event.zoneName}" zonasına $action',
-        type: event.entered ? NotificationType.enter : NotificationType.exit,
-        timestamp: DateTime.now(),
-        userId: event.userId,
-        animalId: event.animalId,
-        animalName: event.animalName,
-        animalEmoji: event.animalEmoji,
-        zoneName: event.zoneName,
-      );
-      await _ds.addNotification(notif);
-      await _localNotif.showGeofenceAlert(
-        animalName: event.animalName,
-        zoneName: event.zoneName,
-        entered: event.entered,
-      );
-      AppLogger.geofenceHadise(event.animalName, event.zoneName, event.entered);
+      await _db
+          .collection('notifications')
+          .doc(event.notifId)
+          .update({'isRead': true});
     } catch (e) {
-      AppLogger.xeta('NOTIF BLOC', 'Geofence bildiriş xətası', xetaObyekti: e);
+      AppLogger.xeta('NOTIF BLOC', 'Mark read xətası', xetaObyekti: e);
     }
   }
 
-  Future<void> _onAddBattery(AddBatteryNotificationEvent event,
+  Future<void> _onMarkAll(
+      MarkAllAsReadEvent event,
+      Emitter<NotificationState> emit) async {
+    final state = this.state;
+    if (state is! NotificationLoaded) return;
+
+    final batch = _db.batch();
+    for (final n in state.unread) {
+      batch.update(
+          _db.collection('notifications').doc(n.id), {'isRead': true});
+    }
+    try {
+      await batch.commit();
+      AppLogger.ugur('NOTIF BLOC', 'Hamısı oxundu');
+    } catch (e) {
+      AppLogger.xeta('NOTIF BLOC', 'Mark all read xətası', xetaObyekti: e);
+    }
+  }
+
+  // ── Add ───────────────────────────────────────────────────────────────────
+
+  Future<void> _onAdd(
+      AddNotificationEvent event,
       Emitter<NotificationState> emit) async {
     try {
-      final notif = NotificationModel(
-        id: _uuid.v4(),
-        title: '🔋 Batareya Xəbərdarlığı',
-        message:
-            '${event.animalName} cihazının batareyası azdır: ${event.batteryPercent}%',
-        type: NotificationType.battery,
-        timestamp: DateTime.now(),
-        userId: event.userId,
-        animalId: event.animalId,
-        animalName: event.animalName,
-        animalEmoji: event.animalEmoji,
-      );
-      await _ds.addNotification(notif);
-      await _localNotif.showBatteryAlert(
-        animalName: event.animalName,
-        batteryPercent: event.batteryPercent,
-      );
-      AppLogger.bildirisEmeliyyati(
-          'Batareya bildirişi göndərildi: ${event.animalName}');
+      await _db.collection('notifications').add({
+        'userId': event.userId,
+        'title': event.title,
+        'body': event.body,
+        'type': event.type.name,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        if (event.data != null) 'data': event.data,
+      });
     } catch (e) {
-      AppLogger.xeta('NOTIF BLOC', 'Batareya bildiriş xətası', xetaObyekti: e);
+      AppLogger.xeta('NOTIF BLOC', 'Bildiriş əlavə xətası', xetaObyekti: e);
+    }
+  }
+
+  // ── Helper ────────────────────────────────────────────────────────────────
+
+  NotificationEntity? _fromFirestore(
+      DocumentSnapshot<Map<String, dynamic>> doc) {
+    try {
+      final d = doc.data()!;
+      return NotificationEntity(
+        id: doc.id,
+        userId: d['userId'] as String? ?? '',
+        title: d['title'] as String? ?? '',
+        body: d['body'] as String? ?? '',
+        type: _parseType(d['type'] as String?),
+        isRead: d['isRead'] as bool? ?? false,
+        createdAt:
+            (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        data: d['data'] as Map<String, dynamic>?,
+      );
+    } catch (e) {
+      AppLogger.xeta('NOTIF BLOC', 'Parse xətası', xetaObyekti: e);
+      return null;
+    }
+  }
+
+  NotificationType _parseType(String? t) {
+    switch (t) {
+      case 'zoneAlert':  return NotificationType.zoneAlert;
+      case 'separation': return NotificationType.separation;
+      default:           return NotificationType.system;
     }
   }
 
   @override
-  Future<void> close() {
-    _sub?.cancel();
+  Future<void> close() async {
+    await _sub?.cancel();
     return super.close();
   }
 }

@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:meta_tracking/features/tracking/domain/entities/animal_location.dart';
-import 'package:meta_tracking/features/zones/domain/entities/zone.dart';
+import 'package:meta_tracking/features/zones/domain/entities/zone_entity.dart';
 
 abstract class ZoneState extends Equatable {
   const ZoneState();

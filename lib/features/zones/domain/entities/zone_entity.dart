@@ -9,6 +9,11 @@ class ZoneEntity extends Equatable {
   final DateTime createdAt;
   final bool isActive;
   final String? description;
+  final String? ownerId;
+
+  /// true → bütün istifadəçilər görə bilər (ictimai otlaq, meşə və s.)
+  /// false → yalnız sahibi görür (şəxsi ərazi)
+  final bool isPublic;
 
   const ZoneEntity({
     required this.id,
@@ -19,19 +24,16 @@ class ZoneEntity extends Equatable {
     required this.createdAt,
     this.isActive = true,
     this.description,
+    this.ownerId,
+    this.isPublic = false,
   });
 
   @override
   List<Object?> get props => [
-    id,
-    name,
-    latitude,
-    longitude,
-    radiusInMeters,
-    createdAt,
-    isActive,
-    description,
-  ];
+        id, name, latitude, longitude,
+        radiusInMeters, createdAt, isActive,
+        description, ownerId, isPublic,
+      ];
 
   ZoneEntity copyWith({
     String? id,
@@ -42,6 +44,8 @@ class ZoneEntity extends Equatable {
     DateTime? createdAt,
     bool? isActive,
     String? description,
+    String? ownerId,
+    bool? isPublic,
   }) {
     return ZoneEntity(
       id: id ?? this.id,
@@ -52,6 +56,8 @@ class ZoneEntity extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
       description: description ?? this.description,
+      ownerId: ownerId ?? this.ownerId,
+      isPublic: isPublic ?? this.isPublic,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
@@ -7,10 +8,12 @@ import 'package:meta_tracking/features/animals/presentation/screens/tracking_scr
 import 'package:meta_tracking/features/animals/presentation/widgets/add_animal_sheet.dart';
 import 'package:meta_tracking/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:meta_tracking/features/auth/presentation/screens/profile_screen.dart';
-import 'package:meta_tracking/features/notifications/presentation/bloc/notification_bloc.dart';
-import 'package:meta_tracking/features/notifications/presentation/screens/notifications_screen.dart';
-import 'package:meta_tracking/features/zones/presentation/bloc/zone_bloc.dart';
+import 'package:meta_tracking/features/herds/presentation/bloc/herd_bloc.dart';
+import 'package:meta_tracking/features/tracking/services/tracking_service.dart';
+import 'package:meta_tracking/features/home/presentation/screens/home_tab.dart';
 import 'package:meta_tracking/features/map/presentation/screens/map_screen.dart';
+import 'package:meta_tracking/features/notifications/presentation/bloc/notification_bloc.dart';
+import 'package:meta_tracking/features/zones/presentation/bloc/zone_bloc.dart';
 import 'package:meta_tracking/features/zones/presentation/event/zone_event.dart';
 
 class HomePage extends StatefulWidget {
@@ -21,262 +24,237 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  late final TrackingService _trackingService;
+  // 0 = Ana Səhifə (HomeTab dashboard)
+  // 1 = İzləmə (TrackingScreen — heyvan siyahısı + filterlər)
+  // 2 = Xəritə
+  // 3 = Profil
   int _currentIndex = 0;
 
+  // ── Status bar ────────────────────────────────────────────────────────────
+  static const _lightOverlay = SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+    systemNavigationBarColor: Colors.white,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  );
+  static const _darkOverlay = SystemUiOverlayStyle(
+    statusBarColor: Color(0xFF0A1628),
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+    systemNavigationBarColor: Colors.white,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  );
+
+  // Xəritə tabı tünd AppBar istifadə edir
+  SystemUiOverlayStyle get _overlay =>
+      _currentIndex == 2 ? _darkOverlay : _lightOverlay;
+
   final List<Widget> _pages = const [
-    TrackingScreen(),
-    MapScreen(),
-    NotificationsScreen(),
-    ProfileScreen(),
+    HomeTab(),          // 0 — Ana Səhifə (dashboard)
+    TrackingScreen(),   // 1 — İzləmə
+    MapScreen(),        // 2 — Xəritə
+    ProfileScreen(),    // 3 — Profil
   ];
 
   @override
   void initState() {
     super.initState();
     AppLogger.ekranAcildi('Ana Səhifə');
+    SystemChrome.setSystemUIOverlayStyle(_lightOverlay);
+    _trackingService = TrackingService(context);
     _initBlocs();
   }
 
   void _initBlocs() {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is! AuthAuthenticated) return;
-    final ownerId = authState.user.id;
-
-    AppLogger.melumat('HOME', 'AnimalBloc yaradıldı, ownerId: $ownerId');
-    context.read<AnimalBloc>().add(WatchAnimalsEvent(ownerId));
-
-    AppLogger.melumat('HOME', 'ZoneBloc yaradıldı');
-    context.read<ZoneBloc>().add(const LoadZonesEvent ());
-
-    AppLogger.melumat('HOME', 'NotificationBloc yaradıldı');
-    context.read<NotificationBloc>().add(WatchNotificationsEvent(ownerId));
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated) return;
+    context.read<AnimalBloc>().add(WatchAnimalsEvent(auth.user.id));
+    context.read<ZoneBloc>().add(LoadZonesEvent(ownerId: auth.user.id));
+    context.read<HerdBloc>().add(WatchHerdsEvent(auth.user.id));
+    context
+        .read<NotificationBloc>()
+        .add(WatchNotificationsEvent(auth.user.id));
+    // Tracking servisini başlat
+    _trackingService.start();
   }
 
-  void _showTopSnack(String msg, {Color color = const Color(0xFF2ECC71)}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(children: [
-        const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-        const SizedBox(width: 8),
-        Expanded(child: Text(msg)),
-      ]),
-      backgroundColor: color,
-      behavior: SnackBarBehavior.floating,
-      // Yuxarıda göstər — böyük margin alt tərəfdən
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 600),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      duration: const Duration(seconds: 2),
-    ));
+  void _onTabChanged(int i) {
+    setState(() => _currentIndex = i);
+    SystemChrome.setSystemUIOverlayStyle(
+        i == 2 ? _darkOverlay : _lightOverlay);
   }
 
-  void _onFabPressed() {
-    switch (_currentIndex) {
-      case 0:
-        _showAddAnimalSheet();
-        break;
-      case 2:
-        _markAllNotificationsRead();
-        break;
-      default:
-        break;
+  // FAB — Tab 0 və 1-də heyvan əlavə et
+  void _onFab() {
+    if (_currentIndex == 0 || _currentIndex == 1) {
+      _showAddAnimalSheet();
     }
   }
 
   void _showAddAnimalSheet() {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is! AuthAuthenticated) return;
-
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => AddAnimalSheet(
-        ownerId: authState.user.id,
+        ownerId: auth.user.id,
         onSubmit: (name, type, chipId, notes, zoneId, zoneName) {
           context.read<AnimalBloc>().add(AddAnimalEvent(
                 name: name,
                 type: type,
-                ownerId: authState.user.id,
+                ownerId: auth.user.id,
                 chipId: chipId.isNotEmpty ? chipId : null,
                 notes: notes.isNotEmpty ? notes : null,
                 zoneId: zoneId,
                 zoneName: zoneName,
               ));
           Navigator.pop(context);
-          _showTopSnack('"$name" uğurla əlavə edildi');
+          _showSnack('"$name" uğurla əlavə edildi');
         },
       ),
     );
   }
 
-  void _markAllNotificationsRead() {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is! AuthAuthenticated) return;
-    context.read<NotificationBloc>().add(MarkAllAsReadEvent(authState.user.id));
-    _showTopSnack('Hamısı oxundu işarələndi');
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+        const SizedBox(width: 8),
+        Expanded(child: Text(msg)),
+      ]),
+      backgroundColor: const Color(0xFF1D9E75),
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 600),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      duration: const Duration(seconds: 2),
+    ));
   }
 
-  IconData _fabIcon() {
-    switch (_currentIndex) {
-      case 0:
-        return Iconsax.add;
-      case 1:
-        return Iconsax.location_add;
-      case 2:
-        return Iconsax.tick_circle;
-      case 3:
-        return Iconsax.setting_2;
-      default:
-        return Iconsax.add;
-    }
+  IconData _fabIcon() =>
+      _currentIndex == 2 ? Iconsax.location_add : Iconsax.add;
+
+  bool get _showFab => _currentIndex != 3;
+
+  @override
+  void dispose() {
+    _trackingService.stop();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: IndexedStack(index: _currentIndex, children: _pages),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _onFabPressed,
-        backgroundColor: const Color(0xFF2ECC71),
-        elevation: 4,
-        shape: const CircleBorder(),
-        child: Icon(_fabIcon(), color: Colors.white, size: 26),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _BottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _overlay,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBody: true,
+        body: IndexedStack(index: _currentIndex, children: _pages),
+        floatingActionButton: _showFab
+            ? FloatingActionButton(
+                onPressed: _onFab,
+                backgroundColor: const Color(0xFF1D9E75),
+                elevation: 4,
+                shape: const CircleBorder(),
+                child: Icon(_fabIcon(), color: Colors.white, size: 26),
+              )
+            : null,
+        floatingActionButtonLocation:
+            FloatingActionButtonLocation.centerDocked,
+        bottomNavigationBar: _BottomNav(
+          currentIndex: _currentIndex,
+          onTap: _onTabChanged,
+        ),
       ),
     );
   }
 }
 
-class _BottomNavBar extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// Bottom Navigation Bar
+// Sol: 0=Ana Səhifə, 1=İzləmə  |  FAB  |  Sağ: 2=Xəritə, 3=Profil
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
-
-  const _BottomNavBar({required this.currentIndex, required this.onTap});
+  const _BottomNav({required this.currentIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<NotificationBloc, NotificationState>(
-      builder: (context, notifState) {
-        final unread =
-            notifState is NotificationLoaded ? notifState.unreadCount : 0;
-
-        return BottomAppBar(
-          shape: const CircularNotchedRectangle(),
-          notchMargin: 8,
-          elevation: 12,
-          color: Colors.white,
-          child: SizedBox(
-            height: 60,
-            child: Row(children: [
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _navItem(0, Iconsax.pet, 'İzləmə'),
-                    _navItem(1, Iconsax.map, 'Xəritə'),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 72),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _navItemWithBadge(
-                        2, Iconsax.notification, 'Bildirişlər', unread),
-                    _navItem(3, Iconsax.user, 'Profil'),
-                  ],
-                ),
-              ),
-            ]),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _navItem(int index, IconData icon, String label) {
-    final isActive = currentIndex == index;
-    return GestureDetector(
-      onTap: () => onTap(index),
-      behavior: HitTestBehavior.opaque,
+    return BottomAppBar(
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 8,
+      elevation: 8,
+      color: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      padding: EdgeInsets.zero,
       child: SizedBox(
-        width: 64,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? const Color(0xFF2ECC71).withValues(alpha: 0.12)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
+        height: 60,
+        child: Row(children: [
+          // Sol
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _item(context, 0, Iconsax.home_2, 'Ana Səhifə'),
+                _item(context, 1, Iconsax.location, 'İzləmə'),
+              ],
             ),
-            child: Icon(icon,
-                size: 20,
-                color: isActive ? const Color(0xFF2ECC71) : Colors.grey[400]),
           ),
-          Text(label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? const Color(0xFF2ECC71) : Colors.grey[400],
-              )),
+          // FAB boşluğu
+          const SizedBox(width: 72),
+          // Sağ
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _item(context, 2, Iconsax.map, 'Xəritə'),
+                _item(context, 3, Iconsax.user, 'Profil'),
+              ],
+            ),
+          ),
         ]),
       ),
     );
   }
 
-  Widget _navItemWithBadge(int index, IconData icon, String label, int badge) {
-    final isActive = currentIndex == index;
+  Widget _item(
+      BuildContext context, int idx, IconData icon, String label) {
+    final active = currentIndex == idx;
     return GestureDetector(
-      onTap: () => onTap(index),
+      onTap: () => onTap(idx),
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 64,
+        width: 62,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Stack(children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? const Color(0xFF2ECC71).withValues(alpha: 0.12)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon,
-                  size: 20,
-                  color: isActive ? const Color(0xFF2ECC71) : Colors.grey[400]),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: active
+                  ? const Color(0xFF1D9E75).withValues(alpha: 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
             ),
-            if (badge > 0)
-              Positioned(
-                top: 2,
-                right: 2,
-                child: Container(
-                  width: 14,
-                  height: 14,
-                  decoration: const BoxDecoration(
-                      color: Color(0xFFFF4444), shape: BoxShape.circle),
-                  child: Center(
-                    child: Text('$badge',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w800)),
-                  ),
-                ),
-              ),
-          ]),
+            child: Icon(icon,
+                size: 20,
+                color: active
+                    ? const Color(0xFF1D9E75)
+                    : Colors.grey[400]),
+          ),
           Text(label,
               style: TextStyle(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? const Color(0xFF2ECC71) : Colors.grey[400],
+                fontSize: 9,
+                fontWeight:
+                    active ? FontWeight.w700 : FontWeight.w500,
+                color: active
+                    ? const Color(0xFF1D9E75)
+                    : Colors.grey[400],
               )),
         ]),
       ),
