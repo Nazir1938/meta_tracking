@@ -11,6 +11,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // flutter_local_notifications tələb edir
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -21,6 +23,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.meta_tracking"
+        // flutter_local_notifications minimum SDK 21 tələb edir
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -36,4 +39,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // flutter_local_notifications üçün məcburi
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

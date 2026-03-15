@@ -5,16 +5,9 @@ import 'package:meta_tracking/features/zones/domain/entities/zone_entity.dart';
 // ─── Abstract ────────────────────────────────────────────────────────────────
 
 abstract class ZoneRemoteDataSource {
-  /// Bütün zonaları real-time stream kimi qaytar
   Stream<List<ZoneEntity>> watchZones(String ownerId);
-
-  /// Zona yarat → yaradılmış entity qaytar
   Future<ZoneEntity> createZone(ZoneEntity zone, String ownerId);
-
-  /// Zona yenilə
   Future<void> updateZone(ZoneEntity zone);
-
-  /// Zona sil
   Future<void> deleteZone(String zoneId);
 }
 
@@ -26,8 +19,7 @@ class ZoneRemoteDataSourceImpl implements ZoneRemoteDataSource {
   ZoneRemoteDataSourceImpl({FirebaseFirestore? db})
       : _db = db ?? FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> get _col =>
-      _db.collection('zones');
+  CollectionReference<Map<String, dynamic>> get _col => _db.collection('zones');
 
   // ── Watch ─────────────────────────────────────────────────────────────────
 
@@ -70,6 +62,9 @@ class ZoneRemoteDataSourceImpl implements ZoneRemoteDataSource {
       'radiusInMeters': zone.radiusInMeters,
       'isActive': zone.isActive,
       'description': zone.description,
+      'zoneType': zone.zoneType.name,
+      'polygonPoints': zone.polygonPoints.map((p) => p.toMap()).toList(),
+      'areaKm2': zone.areaKm2,
       'updatedAt': FieldValue.serverTimestamp(),
     });
     AppLogger.ugur('ZONE DS', 'Zona yeniləndi: ${zone.id}');
@@ -86,21 +81,39 @@ class ZoneRemoteDataSourceImpl implements ZoneRemoteDataSource {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  Map<String, dynamic> _toFirestore(ZoneEntity z, String ownerId) => {
-        'ownerId': ownerId,
-        'name': z.name,
-        'latitude': z.latitude,
-        'longitude': z.longitude,
-        'radiusInMeters': z.radiusInMeters,
-        'isActive': z.isActive,
-        'description': z.description,
-        'createdAt': Timestamp.fromDate(z.createdAt),
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
+  Map<String, dynamic> _toFirestore(ZoneEntity z, String ownerId) {
+    final pts = z.polygonPoints.map((p) => p.toMap()).toList();
+    return {
+      'ownerId': ownerId,
+      'name': z.name,
+      'latitude': z.latitude,
+      'longitude': z.longitude,
+      'radiusInMeters': z.radiusInMeters,
+      'isActive': z.isActive,
+      'description': z.description,
+      'zoneType': z.zoneType.name,
+      'polygonPoints': pts,
+      'areaKm2': z.areaKm2,
+      'createdAt': Timestamp.fromDate(z.createdAt),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
 
   ZoneEntity? _fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     try {
       final d = doc.data()!;
+
+      // Polygon nöqtələri
+      final rawPoints = d['polygonPoints'] as List<dynamic>? ?? [];
+      final points = rawPoints
+          .map((e) => ZoneLatLng.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+
+      // Zona növü
+      final typeStr = d['zoneType'] as String? ?? 'circle';
+      final zoneType =
+          typeStr == 'polygon' ? ZoneType.polygon : ZoneType.circle;
+
       return ZoneEntity(
         id: doc.id,
         name: d['name'] as String? ?? '',
@@ -109,8 +122,11 @@ class ZoneRemoteDataSourceImpl implements ZoneRemoteDataSource {
         radiusInMeters: (d['radiusInMeters'] as num).toDouble(),
         isActive: d['isActive'] as bool? ?? true,
         description: d['description'] as String?,
-        createdAt:
-            (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        ownerId: d['ownerId'] as String?,
+        zoneType: zoneType,
+        polygonPoints: points,
+        areaKm2: (d['areaKm2'] as num?)?.toDouble(),
       );
     } catch (e) {
       AppLogger.xeta('ZONE DS', 'Parse xətası: ${doc.id}', xetaObyekti: e);

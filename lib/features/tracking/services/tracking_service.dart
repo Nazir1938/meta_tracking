@@ -3,16 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
+import 'package:meta_tracking/core/services/local_notification_service.dart';
 import 'package:meta_tracking/features/animals/domain/entities/animal_entity.dart';
 import 'package:meta_tracking/features/animals/presentation/bloc/animal_bloc.dart';
+import 'package:meta_tracking/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:meta_tracking/features/herds/presentation/bloc/herd_bloc.dart';
+import 'package:meta_tracking/features/notifications/presentation/bloc/notification_bloc.dart';
 import 'package:meta_tracking/features/zones/domain/services/geofencing_service.dart';
 import 'package:meta_tracking/features/zones/presentation/bloc/zone_bloc.dart';
 import 'package:meta_tracking/features/tracking/domain/entities/animal_location.dart';
 import 'package:meta_tracking/features/zones/presentation/state/zone_state.dart';
 
 /// Arxa planda işləyən tracking servisi
-/// AnimalBloc, ZoneBloc, HerdBloc ilə əlaqəli
+/// AnimalBloc, ZoneBloc, HerdBloc, NotificationBloc ilə əlaqəli
 class TrackingService {
   final BuildContext _context;
   StreamSubscription<Position>? _locationSub;
@@ -21,6 +24,9 @@ class TrackingService {
   // Interval — hər 10 saniyə
   static const _interval = Duration(seconds: 10);
   Timer? _checkTimer;
+
+  // Əvvəlki zona statuslarını yadda saxla (bildiriş spam-ının qarşısını al)
+  final Map<String, AnimalZoneStatus> _prevZoneStatus = {};
 
   TrackingService(this._context);
 
@@ -66,6 +72,7 @@ class TrackingService {
     await _locationSub?.cancel();
     _checkTimer?.cancel();
     _isRunning = false;
+    _prevZoneStatus.clear();
     AppLogger.xeberdarliq('TRACKING SERVICE', 'Servis dayandırıldı');
   }
 
@@ -73,7 +80,7 @@ class TrackingService {
 
   void _onPositionUpdate(Position pos) {
     if (!_isRunning) return;
-    if (_context.mounted == false) return;
+    if (!_context.mounted) return;
 
     final animalState = _context.read<AnimalBloc>().state;
     if (animalState is! AnimalLoaded) return;
@@ -94,7 +101,7 @@ class TrackingService {
 
   void _runChecks() {
     if (!_isRunning) return;
-    if (_context.mounted == false) return;
+    if (!_context.mounted) return;
 
     final animalState = _context.read<AnimalBloc>().state;
     if (animalState is! AnimalLoaded) return;
@@ -136,9 +143,9 @@ class TrackingService {
           GeofencingService.updateAnimalStatus(location, activeZones);
 
       // Status dəyişibsə Firestore-a yaz
-      if (updated.status != location.status ||
-          updated.zoneId != location.zoneId) {
-        final newStatus = _toZoneStatus(updated.status);
+      final newStatus = _toZoneStatus(updated.status);
+
+      if (newStatus != animal.zoneStatus || updated.zoneId != animal.zoneId) {
         String? newZoneName;
         if (updated.zoneId != null) {
           try {
@@ -154,12 +161,66 @@ class TrackingService {
               zoneName: newZoneName,
             ));
 
-        AppLogger.geofenceHadise(
-          animal.name,
-          newZoneName ?? 'Naməlum',
-          newStatus == AnimalZoneStatus.inside,
-        );
+        // ── Keçid bildirişi (yalnız status həqiqətən dəyişibsə) ──────────
+        final prevStatus =
+            _prevZoneStatus[animal.id] ?? AnimalZoneStatus.outside;
+
+        if (prevStatus != newStatus) {
+          final entered = newStatus == AnimalZoneStatus.inside;
+          final zoneName = newZoneName ?? 'Naməlum Zona';
+
+          AppLogger.geofenceHadise(animal.name, zoneName, entered);
+
+          // Real local bildiriş göstər
+          LocalNotificationService().showGeofenceAlert(
+            animalName: animal.name,
+            zoneName: zoneName,
+            entered: entered,
+          );
+
+          // Bildiriş Bloc-a da yaz (bildirişlər ekranında görünsün)
+          _saveNotificationToBloc(
+            animal: animal,
+            zoneName: zoneName,
+            entered: entered,
+          );
+        }
+
+        _prevZoneStatus[animal.id] = newStatus;
       }
+    }
+  }
+
+  // ── Bildirişi NotificationBloc-a yaz ────────────────────────────────────
+
+  void _saveNotificationToBloc({
+    required AnimalEntity animal,
+    required String zoneName,
+    required bool entered,
+  }) {
+    if (!_context.mounted) return;
+    try {
+      final authState = _context.read<AuthBloc>().state;
+      final userId =
+          authState is AuthAuthenticated ? authState.user.id : 'unknown';
+
+      final action = entered ? 'daxil oldu' : 'çıxdı';
+      final emoji = entered ? '✅' : '⚠️';
+
+      _context.read<NotificationBloc>().add(AddNotificationEvent(
+            userId: userId,
+            title: '$emoji ${animal.name} zona $action',
+            body: '"$zoneName" zonasına ${animal.name} $action',
+            type: NotificationType.zoneAlert,
+            data: {
+              'animalId': animal.id,
+              'zoneName': zoneName,
+              'entered': entered,
+            },
+          ));
+    } catch (e) {
+      AppLogger.xeta('TRACKING SERVICE', 'Bildiriş Bloc xətası',
+          xetaObyekti: e);
     }
   }
 

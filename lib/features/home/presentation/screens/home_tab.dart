@@ -112,8 +112,7 @@ class HomeTab extends StatelessWidget {
                           ...animals.take(3).map(
                                 (a) => _AnimalTile(
                                   animal: a,
-                                  onTap: () =>
-                                      Navigator.of(context).push(
+                                  onTap: () => Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) =>
                                           AnimalDetailScreen(animal: a),
@@ -133,7 +132,7 @@ class HomeTab extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        _ZoneGrid(animals: animals, context: context),
+                        _ZoneGrid(animals: animals),
                       ]),
                     ),
                   ),
@@ -164,18 +163,16 @@ class _AppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
     final auth = context.read<AuthBloc>().state;
-    final name =
-        auth is AuthAuthenticated ? auth.user.name : 'İstifadəçi';
-    final avatarUrl =
-        auth is AuthAuthenticated ? auth.user.avatarUrl : null;
+    final name = auth is AuthAuthenticated ? auth.user.name : 'İstifadəçi';
+    final avatarUrl = auth is AuthAuthenticated ? auth.user.avatarUrl : null;
 
     return BlocBuilder<NotificationBloc, NotificationState>(
       builder: (ctx, ns) {
         final unread = ns is NotificationLoaded ? ns.unreadCount : 0;
         return Container(
           color: Colors.white,
-          padding: EdgeInsets.only(
-              top: top + 12, left: 16, right: 16, bottom: 14),
+          padding:
+              EdgeInsets.only(top: top + 12, left: 16, right: 16, bottom: 14),
           child: Row(children: [
             _AvatarWidget(name: name, url: avatarUrl),
             const SizedBox(width: 10),
@@ -207,24 +204,25 @@ class _AppBar extends StatelessWidget {
                   builder: (_) => const NotificationsScreen())),
               child: Stack(clipBehavior: Clip.none, children: [
                 Container(
-                  width: 40, height: 40,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: const Color(0xFFF4F6F9),
                     borderRadius: BorderRadius.circular(12),
-                    border:
-                        Border.all(color: Colors.grey.shade200, width: 0.5),
+                    border: Border.all(color: Colors.grey.shade200, width: 0.5),
                   ),
                   child: const Icon(Iconsax.notification,
                       size: 20, color: Color(0xFF1A1A2E)),
                 ),
                 if (unread > 0)
                   Positioned(
-                    top: 8, right: 8,
+                    top: 8,
+                    right: 8,
                     child: Container(
-                        width: 8, height: 8,
+                        width: 8,
+                        height: 8,
                         decoration: const BoxDecoration(
-                            color: Color(0xFFE24B4A),
-                            shape: BoxShape.circle)),
+                            color: Color(0xFFE24B4A), shape: BoxShape.circle)),
                   ),
               ]),
             ),
@@ -271,14 +269,16 @@ class _AvatarWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final init = name.isNotEmpty ? name[0].toUpperCase() : '?';
     return Container(
-      width: 40, height: 40,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         color: const Color(0xFF1D9E75).withValues(alpha: 0.15),
       ),
       clipBehavior: Clip.antiAlias,
       child: url != null && url!.isNotEmpty
-          ? Image.network(url!, fit: BoxFit.cover,
+          ? Image.network(url!,
+              fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => _initWidget(init))
           : _initWidget(init),
     );
@@ -294,7 +294,7 @@ class _AvatarWidget extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Summary Cards — 4 kart yan-yana
+// Summary Cards
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SummaryCards extends StatelessWidget {
@@ -354,7 +354,7 @@ class _SummaryCards extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section Row — başlıq + action link
+// Section Row
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SectionRow extends StatelessWidget {
@@ -400,8 +400,7 @@ class _AlertBanner extends StatelessWidget {
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => AnimalDetailScreen(animal: animals.first))),
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
           color: const Color(0xFFE24B4A).withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(14),
@@ -411,7 +410,8 @@ class _AlertBanner extends StatelessWidget {
         ),
         child: Row(children: [
           Container(
-            width: 34, height: 34,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: const Color(0xFFE24B4A).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
@@ -421,21 +421,20 @@ class _AlertBanner extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${animals.length} heyvan zona xaricindədir',
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFA32D2D)),
-                  ),
-                  const SizedBox(height: 2),
-                  Text('$names$extra',
-                      style: const TextStyle(
-                          fontSize: 11, color: Color(0xFFE24B4A))),
-                ]),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                '${animals.length} heyvan zona xaricindədir',
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFA32D2D)),
+              ),
+              const SizedBox(height: 2),
+              Text('$names$extra',
+                  style:
+                      const TextStyle(fontSize: 11, color: Color(0xFFE24B4A))),
+            ]),
           ),
           const Icon(Icons.chevron_right_rounded,
               color: Color(0xFFE24B4A), size: 20),
@@ -478,19 +477,16 @@ class _MapCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(children: [
-              Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Əsas otlaq sahəsi',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1A1A2E))),
-                    const SizedBox(height: 2),
-                    Text('$zoneCount zona · $animalCount heyvan',
-                        style: TextStyle(
-                            fontSize: 11, color: Colors.grey[500])),
-                  ]),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Əsas otlaq sahəsi',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A2E))),
+                const SizedBox(height: 2),
+                Text('$zoneCount zona · $animalCount heyvan',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              ]),
               const Spacer(),
               const Text('Xəritəyə bax →',
                   style: TextStyle(
@@ -510,18 +506,20 @@ class _MapPainter extends CustomPainter {
   void paint(Canvas canvas, Size s) {
     canvas.drawRect(Offset.zero & s, Paint()..color = const Color(0xFFD4E5F0));
 
-    // Zone dairəsi
-    canvas.drawCircle(Offset(s.width * .38, s.height * .52), 36,
+    canvas.drawCircle(
+        Offset(s.width * .38, s.height * .52),
+        36,
         Paint()
           ..color = const Color(0xFF1D9E75).withValues(alpha: 0.14)
           ..style = PaintingStyle.fill);
-    canvas.drawCircle(Offset(s.width * .38, s.height * .52), 36,
+    canvas.drawCircle(
+        Offset(s.width * .38, s.height * .52),
+        36,
         Paint()
           ..color = const Color(0xFF1D9E75).withValues(alpha: 0.4)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1);
 
-    // Yol
     final road = Path()
       ..moveTo(0, s.height * .62)
       ..quadraticBezierTo(
@@ -533,7 +531,6 @@ class _MapPainter extends CustomPainter {
           ..strokeWidth = 4
           ..style = PaintingStyle.stroke);
 
-    // Heyvan nöqtələri
     final gp = Paint()..color = const Color(0xFF1D9E75);
     final rp = Paint()..color = const Color(0xFFE24B4A);
     final grp = Paint()..color = const Color(0xFF888780);
@@ -543,14 +540,15 @@ class _MapPainter extends CustomPainter {
       Offset(s.width * .38, s.height * .56),
       Offset(s.width * .35, s.height * .41),
       Offset(s.width * .43, s.height * .47),
-    ]) canvas.drawCircle(d, 4.5, gp);
+    ]) {
+      canvas.drawCircle(d, 4.5, gp);
+    }
 
     canvas.drawCircle(Offset(s.width * .57, s.height * .38), 4.5, rp);
     canvas.drawCircle(Offset(s.width * .62, s.height * .65), 4.5, rp);
     canvas.drawCircle(Offset(s.width * .22, s.height * .34), 4, grp);
     canvas.drawCircle(Offset(s.width * .80, s.height * .50), 4, grp);
 
-    // Label
     final textPainter = TextPainter(
       text: const TextSpan(
           text: 'Otlaq-1',
@@ -564,9 +562,7 @@ class _MapPainter extends CustomPainter {
         Rect.fromLTWH(8, s.height - 26, textPainter.width + 16, 18),
         const Radius.circular(6));
     canvas.drawRRect(
-        labelBg,
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.92));
+        labelBg, Paint()..color = Colors.white.withValues(alpha: 0.92));
     textPainter.paint(canvas, Offset(16, s.height - 22));
   }
 
@@ -575,7 +571,7 @@ class _MapPainter extends CustomPainter {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Animal Tile — şəkildəki kart
+// Animal Tile
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AnimalTile extends StatelessWidget {
@@ -607,9 +603,9 @@ class _AnimalTile extends StatelessWidget {
           ),
         ),
         child: Row(children: [
-          // Emoji
           Container(
-            width: 44, height: 44,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: _typeColor(animal.type).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
@@ -619,32 +615,29 @@ class _AnimalTile extends StatelessWidget {
                     style: const TextStyle(fontSize: 22))),
           ),
           const SizedBox(width: 12),
-          // İnfo
           Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(animal.name,
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1A1A2E))),
-                  const SizedBox(height: 3),
-                  Row(children: [
-                    Icon(Iconsax.location, size: 10, color: Colors.grey[400]),
-                    const SizedBox(width: 3),
-                    Expanded(
-                      child: Text(
-                        animal.zoneName ?? 'Zona təyin edilməyib',
-                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ]),
-                ]),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(animal.name,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A1A2E))),
+              const SizedBox(height: 3),
+              Row(children: [
+                Icon(Iconsax.location, size: 10, color: Colors.grey[400]),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: Text(
+                    animal.zoneName ?? 'Zona təyin edilməyib',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ]),
+            ]),
           ),
           const SizedBox(width: 8),
-          // Sağ tərəf
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -661,8 +654,7 @@ class _AnimalTile extends StatelessWidget {
             const SizedBox(height: 5),
             if (animal.batteryLevel != null)
               Text('🔋 ${(animal.batteryLevel! * 100).toInt()}%',
-                  style:
-                      TextStyle(fontSize: 10, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 10, color: Colors.grey[500])),
           ]),
         ]),
       ),
@@ -671,50 +663,62 @@ class _AnimalTile extends StatelessWidget {
 
   Color _statusColor(AnimalZoneStatus s) {
     switch (s) {
-      case AnimalZoneStatus.inside:  return const Color(0xFF1D9E75);
-      case AnimalZoneStatus.outside: return const Color(0xFF185FA5);
-      case AnimalZoneStatus.alert:   return const Color(0xFFE24B4A);
+      case AnimalZoneStatus.inside:
+        return const Color(0xFF1D9E75);
+      case AnimalZoneStatus.outside:
+        return const Color(0xFF185FA5);
+      case AnimalZoneStatus.alert:
+        return const Color(0xFFE24B4A);
     }
   }
 
   String _statusLabel(AnimalZoneStatus s) {
     switch (s) {
-      case AnimalZoneStatus.inside:  return 'İçərdə';
-      case AnimalZoneStatus.outside: return 'Xaricdə';
-      case AnimalZoneStatus.alert:   return 'ALERT';
+      case AnimalZoneStatus.inside:
+        return 'İçərdə';
+      case AnimalZoneStatus.outside:
+        return 'Xaricdə';
+      case AnimalZoneStatus.alert:
+        return 'ALERT';
     }
   }
 
   Color _typeColor(AnimalType t) {
     switch (t) {
-      case AnimalType.cattle: return const Color(0xFF8B5E3C);
-      case AnimalType.sheep:  return const Color(0xFF9B9B9B);
-      case AnimalType.horse:  return const Color(0xFF185FA5);
-      case AnimalType.goat:   return const Color(0xFF7B9E5E);
-      case AnimalType.pig:    return const Color(0xFFFF8FAB);
-      case AnimalType.other:  return const Color(0xFF6C63FF);
+      case AnimalType.cattle:
+        return const Color(0xFF8B5E3C);
+      case AnimalType.sheep:
+        return const Color(0xFF9B9B9B);
+      case AnimalType.horse:
+        return const Color(0xFF185FA5);
+      case AnimalType.goat:
+        return const Color(0xFF7B9E5E);
+      case AnimalType.pig:
+        return const Color(0xFFFF8FAB);
+      case AnimalType.other:
+        return const Color(0xFF6C63FF);
     }
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Zone Grid — 2 sütun, progress bar ilə
+// Zone Grid
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ZoneGrid extends StatelessWidget {
   final List<AnimalEntity> animals;
-  final BuildContext context;
-  const _ZoneGrid({required this.animals, required this.context});
+  const _ZoneGrid({required this.animals});
 
   @override
-  Widget build(BuildContext ctx) {
+  Widget build(BuildContext context) {
     return BlocBuilder<ZoneBloc, ZoneState>(
       builder: (ctx, zoneState) {
         final zones =
             zoneState is ZonesLoaded ? zoneState.zones : <ZoneEntity>[];
 
         if (zones.isEmpty) {
-          return _EmptyHint(text: 'Hələ zona yoxdur. Xəritədən əlavə edin.');
+          return const _EmptyHint(
+              text: 'Hələ zona yoxdur. Xəritədən əlavə edin.');
         }
 
         return GridView.builder(
@@ -729,17 +733,19 @@ class _ZoneGrid extends StatelessWidget {
           itemCount: zones.length,
           itemBuilder: (_, i) {
             final zone = zones[i];
-            final inZone = animals
-                .where((a) => a.zoneId == zone.id)
-                .length;
-            final capacity = 100;
+            final inZone = animals.where((a) => a.zoneId == zone.id).length;
+            const capacity = 100;
             final pct = (inZone / capacity).clamp(0.0, 1.0);
             return _ZoneTile(
               zone: zone,
               animalCount: inZone,
               pct: pct,
-              onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
-                  builder: (_) => MapScreen())),
+              // ── DÜZƏLİŞ: focusZone ilə MapScreen açılır ──────────────
+              onTap: () => Navigator.of(ctx).push(
+                MaterialPageRoute(
+                  builder: (_) => MapScreen(focusZone: zone),
+                ),
+              ),
             );
           },
         );
@@ -761,9 +767,7 @@ class _ZoneTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = zone.isActive
-        ? const Color(0xFF1D9E75)
-        : Colors.grey;
+    final color = zone.isActive ? const Color(0xFF1D9E75) : Colors.grey;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -773,37 +777,39 @@ class _ZoneTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.grey.shade200, width: 0.5),
         ),
-        child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Text(_zoneEmoji(zone.name),
-                    style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(zone.name,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1A1A2E)),
-                      overflow: TextOverflow.ellipsis),
-                ),
-              ]),
-              const SizedBox(height: 4),
-              Text('$animalCount heyvan',
-                  style: TextStyle(
-                      fontSize: 10, color: Colors.grey[500])),
-              const Spacer(),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: pct,
-                  minHeight: 4,
-                  backgroundColor: Colors.grey.shade100,
-                  valueColor: AlwaysStoppedAnimation(color),
-                ),
-              ),
-            ]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Text(_zoneEmoji(zone.name), style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(zone.name,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A1A2E)),
+                  overflow: TextOverflow.ellipsis),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          // ── DÜZƏLİŞ: sahəni km² / km radius kimi göstər ──────────
+          Text(
+            zone.displayRadius,
+            style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+          ),
+          const SizedBox(height: 2),
+          Text('$animalCount heyvan',
+              style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+          const Spacer(),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 4,
+              backgroundColor: Colors.grey.shade100,
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          ),
+        ]),
       ),
     );
   }

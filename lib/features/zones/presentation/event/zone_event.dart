@@ -10,7 +10,6 @@ abstract class ZoneEvent extends Equatable {
 
 /// Zonaları Firestore-dan yüklə və stream-i dinlə
 class LoadZonesEvent extends ZoneEvent {
-  /// Zonanın sahibi — AuthBloc-dan gəlir
   final String? ownerId;
   const LoadZonesEvent({this.ownerId});
   @override
@@ -26,6 +25,15 @@ class CreateZoneEvent extends ZoneEvent {
   final String? description;
   final String? ownerId;
 
+  /// Zona növü — circle (default) ya da polygon
+  final ZoneType zoneType;
+
+  /// Polygon nöqtələri — zoneType == polygon olduqda tələb olunur
+  final List<ZoneLatLng> polygonPoints;
+
+  /// Polygon sahəsi km²
+  final double? areaKm2;
+
   const CreateZoneEvent({
     required this.name,
     required this.latitude,
@@ -33,10 +41,22 @@ class CreateZoneEvent extends ZoneEvent {
     required this.radiusInMeters,
     this.description,
     this.ownerId,
+    this.zoneType = ZoneType.circle,
+    this.polygonPoints = const [],
+    this.areaKm2,
   });
 
   @override
-  List<Object?> get props => [name, latitude, longitude, radiusInMeters, ownerId];
+  List<Object?> get props => [
+        name,
+        latitude,
+        longitude,
+        radiusInMeters,
+        ownerId,
+        zoneType,
+        polygonPoints,
+        areaKm2,
+      ];
 }
 
 /// Mövcud zonayı yenilə
