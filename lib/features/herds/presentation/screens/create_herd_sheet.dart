@@ -4,6 +4,9 @@ import 'package:iconsax/iconsax.dart';
 import 'package:meta_tracking/features/animals/domain/entities/animal_entity.dart';
 import 'package:meta_tracking/features/animals/presentation/bloc/animal_bloc.dart';
 import 'package:meta_tracking/features/herds/presentation/bloc/herd_bloc.dart';
+import 'package:meta_tracking/features/zones/domain/entities/zone_entity.dart';
+import 'package:meta_tracking/features/zones/presentation/bloc/zone_bloc.dart';
+import 'package:meta_tracking/features/zones/presentation/state/zone_state.dart';
 
 class CreateHerdSheet extends StatefulWidget {
   final String ownerId;
@@ -22,7 +25,8 @@ class CreateHerdSheet extends StatefulWidget {
 class _CreateHerdSheetState extends State<CreateHerdSheet> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final Set<String> _selected = {};
+  final Set<String> _selectedAnimalIds = {};
+  String? _selectedZoneId;
   double _threshold = 500;
   bool _isLoading = false;
 
@@ -30,7 +34,7 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
   void initState() {
     super.initState();
     if (widget.preSelectedAnimalIds != null) {
-      _selected.addAll(widget.preSelectedAnimalIds!);
+      _selectedAnimalIds.addAll(widget.preSelectedAnimalIds!);
     }
   }
 
@@ -43,19 +47,13 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
 
   void _submit() {
     final name = _nameCtrl.text.trim();
-    if (name.isEmpty) {
-      _snack('Naxır adı daxil edin');
-      return;
-    }
-    if (_selected.isEmpty) {
-      _snack('Ən az 1 heyvan seçin');
-      return;
-    }
+    if (name.isEmpty) { _snack('Sürü adı daxil edin'); return; }
+    if (_selectedAnimalIds.isEmpty) { _snack('Ən az 1 heyvan seçin'); return; }
     setState(() => _isLoading = true);
     context.read<HerdBloc>().add(CreateHerdEvent(
           name: name,
           ownerId: widget.ownerId,
-          animalIds: _selected.toList(),
+          animalIds: _selectedAnimalIds.toList(),
           description: _descCtrl.text.trim().isEmpty
               ? null
               : _descCtrl.text.trim(),
@@ -64,20 +62,24 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
     Navigator.pop(context);
   }
 
-  void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: const Color(0xFFE24B4A),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
-  }
+  void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: const Color(0xFFE24B4A),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final animalState = context.watch<AnimalBloc>().state;
-    final animals =
-        animalState is AnimalLoaded ? animalState.animals : <AnimalEntity>[];
+    final animals = context.watch<AnimalBloc>().state is AnimalLoaded
+        ? (context.watch<AnimalBloc>().state as AnimalLoaded).animals
+        : <AnimalEntity>[];
+    final zones = context.watch<ZoneBloc>().state is ZonesLoaded
+        ? (context.watch<ZoneBloc>().state as ZonesLoaded).zones
+        : <ZoneEntity>[];
 
     return Container(
       margin: EdgeInsets.only(
@@ -87,7 +89,7 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: DraggableScrollableSheet(
-        initialChildSize: 0.85,
+        initialChildSize: 0.90,
         minChildSize: 0.5,
         maxChildSize: 0.95,
         expand: false,
@@ -102,17 +104,17 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
                   borderRadius: BorderRadius.circular(2)),
             ),
           ),
-          // Header
+          // Başlıq
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
             child: Row(children: [
-              const Text('Yeni Naxır',
+              const Text('Yeni Sürü',
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF1A1A2E))),
               const Spacer(),
-              Text('${_selected.length} seçildi',
+              Text('${_selectedAnimalIds.length} heyvan seçildi',
                   style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF1D9E75),
@@ -120,28 +122,87 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
             ]),
           ),
           const SizedBox(height: 12),
-          // Scroll məzmun
+
           Expanded(
             child: ListView(
               controller: ctrl,
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               children: [
-                // Ad
-                _field(_nameCtrl, 'Naxır adı *', Iconsax.people, autofocus: true),
+                // ── Ad + Təsvir ───────────────────────────────────
+                _field(_nameCtrl, 'Sürü adı *', Iconsax.people,
+                    autofocus: true),
                 const SizedBox(height: 10),
-                // Təsvir
                 _field(_descCtrl, 'Təsvir (ixtiyari)', Iconsax.note),
-                const SizedBox(height: 16),
-
-                // Ayrılma məsafəsi
-                _thresholdSection(),
-                const SizedBox(height: 16),
-
-                // Heyvan seçimi
-                _animalSelectionSection(animals),
                 const SizedBox(height: 20),
 
-                // Yarat düyməsi
+                // ── Ərazi seçimi ──────────────────────────────────
+                _sectionTitle('Ərazi (ixtiyari)'),
+                const SizedBox(height: 10),
+                _ZoneSelection(
+                  zones: zones,
+                  selectedZoneId: _selectedZoneId,
+                  onSelected: (id, name) => setState(() {
+                    _selectedZoneId = id;
+                  }),
+                  onClear: () => setState(() {
+                    _selectedZoneId = null;
+                  }),
+                ),
+                const SizedBox(height: 20),
+
+                // ── Ayrılma məsafəsi ──────────────────────────────
+                _sectionTitle('Ayrılma məsafəsi'),
+                const SizedBox(height: 6),
+                _ThresholdSlider(
+                  threshold: _threshold,
+                  onChanged: (v) => setState(() => _threshold = v),
+                ),
+                const SizedBox(height: 20),
+
+                // ── Heyvan seçimi ─────────────────────────────────
+                Row(children: [
+                  _sectionTitle('Heyvanlar'),
+                  const Text(' *',
+                      style: TextStyle(
+                          color: Color(0xFFE24B4A),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  if (animals.isNotEmpty)
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        _selectedAnimalIds.length == animals.length
+                            ? _selectedAnimalIds.clear()
+                            : _selectedAnimalIds
+                                .addAll(animals.map((a) => a.id));
+                      }),
+                      child: Text(
+                        _selectedAnimalIds.length == animals.length
+                            ? 'Hamısını ləğv et'
+                            : 'Hamısını seç',
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF1D9E75),
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                ]),
+                const SizedBox(height: 10),
+                if (animals.isEmpty)
+                  _emptyBox('Heyvan yoxdur. Əvvəlcə heyvan əlavə edin.')
+                else
+                  ...animals.map((a) => _AnimalTile(
+                        animal: a,
+                        isSelected: _selectedAnimalIds.contains(a.id),
+                        onTap: () => setState(() {
+                          _selectedAnimalIds.contains(a.id)
+                              ? _selectedAnimalIds.remove(a.id)
+                              : _selectedAnimalIds.add(a.id);
+                        }),
+                      )),
+                const SizedBox(height: 20),
+
+                // ── Yarat düyməsi ─────────────────────────────────
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -153,7 +214,8 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
                         : const Icon(Iconsax.people, size: 18),
-                    label: Text(_isLoading ? 'Yaradılır...' : 'Naxır Yarat'),
+                    label: Text(
+                        _isLoading ? 'Yaradılır...' : 'Sürü Yarat'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1D9E75),
                       foregroundColor: Colors.white,
@@ -171,7 +233,26 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
     );
   }
 
-  Widget _field(TextEditingController ctrl, String label, IconData icon,
+  Widget _sectionTitle(String t) => Text(t,
+      style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF1A1A2E)));
+
+  Widget _emptyBox(String msg) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Center(
+            child: Text(msg,
+                style:
+                    const TextStyle(color: Colors.grey, fontSize: 12))),
+      );
+
+  TextField _field(TextEditingController ctrl, String label, IconData icon,
       {bool autofocus = false}) {
     return TextField(
       controller: ctrl,
@@ -179,7 +260,8 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 18),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide:
@@ -190,129 +272,201 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
       ),
     );
   }
+}
 
-  Widget _thresholdSection() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F9),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200, width: 0.5),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Iconsax.radar, size: 16, color: Color(0xFF1D9E75)),
-          const SizedBox(width: 8),
-          const Text('Ayrılma həddi',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A2E))),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1D9E75).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _threshold < 1000
-                  ? '${_threshold.toInt()} m'
-                  : '${(_threshold / 1000).toStringAsFixed(1)} km',
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1D9E75)),
-            ),
-          ),
-        ]),
-        const SizedBox(height: 4),
-        Text(
-          'Bu heyvan sürünün mərkəzindən bu qədər uzaqlaşarsa bildiriş göndərilir',
-          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-        ),
-        Slider(
-          value: _threshold,
-          min: 100,
-          max: 2000,
-          divisions: 38,
-          activeColor: const Color(0xFF1D9E75),
-          onChanged: (v) => setState(() => _threshold = v),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('100 m', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-            Text('500 m', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-            Text('1 km', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-            Text('2 km', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-          ],
-        ),
-      ]),
-    );
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// Ərazi seçim widget-i
+// ─────────────────────────────────────────────────────────────────────────────
 
-  Widget _animalSelectionSection(List<AnimalEntity> animals) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        const Text('Heyvanlar',
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A2E))),
-        const SizedBox(width: 4),
-        const Text('*',
-            style: TextStyle(
-                color: Color(0xFFE24B4A),
-                fontSize: 14,
-                fontWeight: FontWeight.w700)),
-        const Spacer(),
-        // Hamısını seç / ləğv et
-        if (animals.isNotEmpty)
-          GestureDetector(
-            onTap: () => setState(() {
-              if (_selected.length == animals.length) {
-                _selected.clear();
-              } else {
-                _selected.addAll(animals.map((a) => a.id));
-              }
-            }),
-            child: Text(
-              _selected.length == animals.length
-                  ? 'Hamısını ləğv et'
-                  : 'Hamısını seç',
-              style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF1D9E75),
-                  fontWeight: FontWeight.w600),
-            ),
-          ),
-      ]),
-      const SizedBox(height: 10),
-      if (animals.isEmpty)
+class _ZoneSelection extends StatelessWidget {
+  final List<ZoneEntity> zones;
+  final String? selectedZoneId;
+  final void Function(String id, String name) onSelected;
+  final VoidCallback onClear;
+
+  const _ZoneSelection({
+    required this.zones,
+    this.selectedZoneId,
+    required this.onSelected,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (zones.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Text('Zona yoxdur. Xəritədən zona əlavə edin.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            textAlign: TextAlign.center),
+      );
+    }
+
+    return Column(children: [
+      if (selectedZoneId != null)
         Container(
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
+            color: const Color(0xFF1D9E75).withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(
+                color: const Color(0xFF1D9E75).withValues(alpha: 0.3)),
           ),
-          child: const Center(
-            child: Text('Heyvan yoxdur. Əvvəlcə heyvan əlavə edin.',
-                style: TextStyle(color: Colors.grey, fontSize: 12)),
+          child: Row(children: [
+            const Icon(Iconsax.location,
+                color: Color(0xFF1D9E75), size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                  zones
+                          .firstWhere((z) => z.id == selectedZoneId,
+                              orElse: () => zones.first)
+                          .name,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+            const Icon(Iconsax.tick_circle,
+                color: Color(0xFF1D9E75), size: 16),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onClear,
+              child: const Icon(Iconsax.close_circle,
+                  color: Colors.grey, size: 16),
+            ),
+          ]),
+        ),
+      ...zones.map((zone) {
+        final isSelected = selectedZoneId == zone.id;
+        return GestureDetector(
+          onTap: () => onSelected(zone.id, zone.name),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF1D9E75).withValues(alpha: 0.06)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF1D9E75)
+                    : Colors.grey.shade200,
+                width: isSelected ? 1.5 : 0.5,
+              ),
+            ),
+            child: Row(children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: 20, height: 20,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF1D9E75)
+                      : Colors.grey.shade100,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFF1D9E75)
+                          : Colors.grey.shade300),
+                ),
+                child: isSelected
+                    ? const Icon(Icons.check,
+                        size: 12, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              const Icon(Iconsax.location,
+                  size: 14, color: Color(0xFF1D9E75)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(zone.name,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+              Text(zone.displayRadius,
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey[500])),
+            ]),
           ),
-        )
-      else
-        ...animals.map((animal) => _animalTile(animal)),
+        );
+      }),
     ]);
   }
+}
 
-  Widget _animalTile(AnimalEntity animal) {
-    final isSelected = _selected.contains(animal.id);
+// ─────────────────────────────────────────────────────────────────────────────
+// Ayrılma məsafəsi slider
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ThresholdSlider extends StatelessWidget {
+  final double threshold;
+  final ValueChanged<double> onChanged;
+  const _ThresholdSlider(
+      {required this.threshold, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(
+          child: Text(
+            'Heyvan sürünün mərkəzindən bu qədər uzaqlaşarsa bildiriş göndərilir',
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          threshold < 1000
+              ? '${threshold.toInt()} m'
+              : '${(threshold / 1000).toStringAsFixed(1)} km',
+          style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1D9E75)),
+        ),
+      ]),
+      Slider(
+        value: threshold,
+        min: 100, max: 2000, divisions: 38,
+        activeColor: const Color(0xFF1D9E75),
+        onChanged: onChanged,
+      ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: ['100 m', '500 m', '1 km', '2 km']
+            .map((t) => Text(t,
+                style: TextStyle(
+                    fontSize: 10, color: Colors.grey[500])))
+            .toList(),
+      ),
+    ]);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Heyvan seçim tile-ı
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AnimalTile extends StatelessWidget {
+  final AnimalEntity animal;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _AnimalTile(
+      {required this.animal,
+      required this.isSelected,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => setState(() {
-        isSelected ? _selected.remove(animal.id) : _selected.add(animal.id);
-      }),
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.only(bottom: 8),
@@ -330,7 +484,6 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
           ),
         ),
         child: Row(children: [
-          // Checkbox
           AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             width: 22, height: 22,
@@ -340,21 +493,19 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
                   : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: isSelected
-                    ? const Color(0xFF1D9E75)
-                    : Colors.grey.shade300,
-              ),
+                  color: isSelected
+                      ? const Color(0xFF1D9E75)
+                      : Colors.grey.shade300),
             ),
             child: isSelected
                 ? const Icon(Icons.check, size: 14, color: Colors.white)
                 : null,
           ),
           const SizedBox(width: 12),
-          // Emoji
           Container(
             width: 36, height: 36,
             decoration: BoxDecoration(
-              color: _typeColor(animal.type).withValues(alpha: 0.12),
+              color: Colors.grey.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
@@ -362,68 +513,22 @@ class _CreateHerdSheetState extends State<CreateHerdSheet> {
                     style: const TextStyle(fontSize: 18))),
           ),
           const SizedBox(width: 10),
-          // İnfo
           Expanded(
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-              Text(animal.name,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A2E))),
-              Text(
-                animal.zoneName ?? animal.typeName,
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-              ),
-            ]),
-          ),
-          // Status
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: _statusColor(animal.zoneStatus)
-                  .withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              _statusLabel(animal.zoneStatus),
-              style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  color: _statusColor(animal.zoneStatus)),
-            ),
+                  Text(animal.name,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A1A2E))),
+                  Text(animal.zoneName ?? animal.typeName,
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey[500])),
+                ]),
           ),
         ]),
       ),
     );
-  }
-
-  Color _typeColor(AnimalType t) {
-    switch (t) {
-      case AnimalType.cattle: return const Color(0xFF8B5E3C);
-      case AnimalType.sheep:  return const Color(0xFF9B9B9B);
-      case AnimalType.horse:  return const Color(0xFF185FA5);
-      case AnimalType.goat:   return const Color(0xFF7B9E5E);
-      case AnimalType.pig:    return const Color(0xFFFF8FAB);
-      case AnimalType.other:  return const Color(0xFF6C63FF);
-    }
-  }
-
-  Color _statusColor(AnimalZoneStatus s) {
-    switch (s) {
-      case AnimalZoneStatus.inside:  return const Color(0xFF1D9E75);
-      case AnimalZoneStatus.outside: return const Color(0xFF185FA5);
-      case AnimalZoneStatus.alert:   return const Color(0xFFE24B4A);
-    }
-  }
-
-  String _statusLabel(AnimalZoneStatus s) {
-    switch (s) {
-      case AnimalZoneStatus.inside:  return 'İçərdə';
-      case AnimalZoneStatus.outside: return 'Xaricdə';
-      case AnimalZoneStatus.alert:   return 'ALERT';
-    }
   }
 }
