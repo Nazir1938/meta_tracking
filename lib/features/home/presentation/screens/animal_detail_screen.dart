@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -30,15 +31,22 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
   Timer? _sendTimer;
   Position? _lastPosition;
   bool _isTracking = false;
-  int _intervalSeconds = 30;
   int _sentCount = 0;
   DateTime? _lastSentTime;
 
-  static const _intervalOptions = [10, 30, 60, 120];
+  // FIX: Sabit 5 saniyə — seçim yoxdur, intervalOptions silinib
+  static const _sendInterval = Duration(seconds: 5);
+  static const _intervalSeconds = 5;
+
+  final _battery = Battery();
+  double _batteryLevel = 1.0;
 
   @override
   void dispose() {
-    _stopTracking();
+    // FIX: dispose-da tracking-i DAYANDIRMIRIQ — istifadəçi manual bağlamalıdır.
+    // Sadəcə timer/stream-i widget-dən ayırırıq.
+    _sendTimer?.cancel();
+    _gpsSub?.cancel();
     super.dispose();
   }
 
@@ -52,39 +60,63 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
       _snack('GPS icazəsi verilmədi', isError: true);
       return;
     }
+
+    // Firestore-da isTracking = true
     // ignore: use_build_context_synchronously
     context.read<AnimalBloc>().add(StartTrackingEvent(widget.animal.id));
+
+    // GPS stream — anlıq mövqe yeniləmə üçün
     _gpsSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high, distanceFilter: 0),
     ).listen(
-      (pos) => setState(() => _lastPosition = pos),
+      (pos) {
+        if (mounted) setState(() => _lastPosition = pos);
+      },
       onError: (e) =>
           AppLogger.xeta('DETAIL TRACKING', 'GPS xəta', xetaObyekti: e),
     );
-    _sendTimer = Timer.periodic(
-        Duration(seconds: _intervalSeconds), (_) => _sendPosition());
-    final firstPos = await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.high));
-    if (!mounted) return;
+
+    // İlk mövqe
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.high));
+      if (mounted) setState(() => _lastPosition = pos);
+    } catch (_) {}
+
+    // Hər 5 saniyədən bir Firestore-a göndər
+    _sendTimer = Timer.periodic(_sendInterval, (_) => _sendPosition());
+
     setState(() {
-      _lastPosition = firstPos;
       _isTracking = true;
+      _sentCount = 0;
     });
-    _sendPosition();
-    AppLogger.ugur('DETAIL TRACKING',
-        '${widget.animal.name} başladı — ${_intervalSeconds}s');
+    _sendPosition(); // ilk göndərmə dərhal
+    AppLogger.ugur(
+        'DETAIL TRACKING', '${widget.animal.name} başladı — 5s interval');
   }
 
-  void _sendPosition() {
-    if (_lastPosition == null || !mounted) return;
+  Future<void> _sendPosition() async {
+    if (!_isTracking || !mounted) return;
+    final pos = _lastPosition;
+    if (pos == null) return;
+
+    // Batareyani oxu
+    try {
+      final level = await _battery.batteryLevel;
+      _batteryLevel = level / 100.0;
+    } catch (_) {
+      _batteryLevel = 1.0;
+    }
+
+    if (!mounted) return;
     context.read<AnimalBloc>().add(UpdateLocationEvent(
           animalId: widget.animal.id,
-          lat: _lastPosition!.latitude,
-          lng: _lastPosition!.longitude,
-          speed: _lastPosition!.speed < 0 ? 0 : _lastPosition!.speed,
-          battery: 1.0,
+          lat: pos.latitude,
+          lng: pos.longitude,
+          speed: pos.speed < 0 ? 0 : pos.speed,
+          battery: _batteryLevel,
         ));
     setState(() {
       _sentCount++;
@@ -93,10 +125,10 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
   }
 
   Future<void> _stopTracking() async {
-    await _gpsSub?.cancel();
-    _gpsSub = null;
     _sendTimer?.cancel();
     _sendTimer = null;
+    await _gpsSub?.cancel();
+    _gpsSub = null;
     if (mounted) {
       context.read<AnimalBloc>().add(StopTrackingEvent(widget.animal.id));
       setState(() => _isTracking = false);
@@ -105,25 +137,12 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
         'DETAIL TRACKING', '${widget.animal.name} dayandırıldı');
   }
 
+  // Toggle — açıq qalır, sadəcə düymə ilə bağlanır
   void _toggleTracking() => _isTracking ? _stopTracking() : _startTracking();
 
-  void _showIntervalPicker() {
-    if (_isTracking) {
-      _snack('İzləməni dayandırıb intervalı dəyişin');
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => AnimalDetailIntervalSheet(
-        selected: _intervalSeconds,
-        options: _intervalOptions,
-        onSelect: (v) {
-          setState(() => _intervalSeconds = v);
-          Navigator.pop(context);
-        },
-      ),
-    );
+  // Interval picker artıq yoxdur (5s sabit), ama panel hələ onIntervalTap istəyir
+  void _onIntervalTap() {
+    _snack('Göndərmə intervalı: 5 saniyə (sabit)');
   }
 
   void _snack(String msg, {bool isError = false}) {
@@ -185,7 +204,7 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                           lastSentTime: _lastSentTime,
                           animal: animal,
                           onToggle: _toggleTracking,
-                          onIntervalTap: _showIntervalPicker,
+                          onIntervalTap: _onIntervalTap,
                         ),
                         const SizedBox(height: 16),
                         const AnimalDetailSectionTitle(
@@ -209,7 +228,6 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                           AnimalInfoRow(
                               'Son yeniləmə', _formatTime(animal.lastUpdate),
                               valueColor: const Color(0xFF185FA5)),
-                          // FIX: batteryLevel null və ya -1 → "Bilinmir"
                           AnimalInfoRow('Batareya', '',
                               customValue: AnimalBatteryWidget(
                                   level: animal.batteryLevel)),
@@ -266,5 +284,75 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
     if (diff.inMinutes < 60) return '${diff.inMinutes} dəq əvvəl';
     if (diff.inHours < 24) return '${diff.inHours} saat əvvəl';
     return '${diff.inDays} gün əvvəl';
+  }
+}
+
+// ── Section Title ─────────────────────────────────────────────────────────────
+class AnimalDetailSectionTitle extends StatelessWidget {
+  final String title;
+  const AnimalDetailSectionTitle({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(title,
+        style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1A1A2E)));
+  }
+}
+
+// ── Delete Button ─────────────────────────────────────────────────────────────
+class AnimalDetailDeleteButton extends StatelessWidget {
+  final AnimalEntity animal;
+  const AnimalDetailDeleteButton({super.key, required this.animal});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('${animal.typeEmoji} ${animal.name} silinsin?',
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: const Text('Bu əməliyyat geri alına bilməz.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('İmtina')),
+            TextButton(
+              onPressed: () {
+                context.read<AnimalBloc>().add(DeleteAnimalEvent(animal.id));
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+              },
+              child:
+                  const Text('Sil', style: TextStyle(color: Color(0xFFE24B4A))),
+            ),
+          ],
+        ),
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE24B4A).withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: const Color(0xFFE24B4A).withValues(alpha: 0.2),
+              width: 0.5),
+        ),
+        child: const Center(
+          child: Text('Heyvanı Sil',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFE24B4A))),
+        ),
+      ),
+    );
   }
 }

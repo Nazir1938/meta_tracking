@@ -230,7 +230,8 @@ class AnimalBloc extends Bloc<AnimalEvent, AnimalState> {
     }
   }
 
-  // ── Edit ──────────────────────────────────────────────────────────────────
+ // Fayl: lib/features/animals/presentation/bloc/animal_bloc.dart
+// Yalnız _onEdit metodunu aşağıdakı ilə əvəz edin:
 
   Future<void> _onEdit(EditAnimalEvent event, Emitter<AnimalState> emit) async {
     AppLogger.blocHadise('AnimalBloc', 'EditAnimalEvent: ${event.animalId}');
@@ -243,13 +244,17 @@ class AnimalBloc extends Bloc<AnimalEvent, AnimalState> {
         orElse: () => throw Exception('Heyvan tapılmadı: ${event.animalId}'),
       );
 
+      // FIX: event.zoneId == null olduqda clearZone: true göndər.
+      // Əks halda Dart-ın ?. operatoru köhnə zoneId-ni saxlayır,
+      // Firestore-a FieldValue.delete() getmir, heyvan zonada qalır.
       final updated = existing.copyWith(
-        name: event.name,
-        type: event.type,
-        chipId: event.chipId,
-        notes: event.notes,
-        zoneId: event.zoneId,
-        zoneName: event.zoneName,
+        name:      event.name,
+        type:      event.type,
+        chipId:    event.chipId,
+        notes:     event.notes,
+        zoneId:    event.zoneId,
+        zoneName:  event.zoneName,
+        clearZone: event.zoneId == null, // ← BU SƏTIR ƏLAVİ EDİLDİ
       );
 
       await _repo.updateAnimal(updated);

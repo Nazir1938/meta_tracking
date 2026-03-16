@@ -5,6 +5,7 @@ version: 1.0.0+1
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
+
 dependencies:
   flutter:
     sdk: flutter
@@ -31,11 +32,47 @@ dependencies:
   firebase_storage: ^12.4.10
   flutter_local_notifications: ^21.0.0
   battery_plus: ^7.0.0
+  flutter_launcher_icons: ^0.14.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
 
+# ─────────────────────────────────────────────
+# MetaFarm App Icon Konfiqurasiyası
+# ─────────────────────────────────────────────
+flutter_launcher_icons:
+  # Mənbə şəkil (assets/app_icon/app.png)
+  image_path: "assets/app_icon/app.png"
+
+  # ── Android ──────────────────────────────
+  android: true
+  # Android 8.0+ (API 26+) uyğunlaşdırılmış ikon
+  adaptive_icon_foreground: "assets/app_icon/app.png"
+  adaptive_icon_background: "#1A6420" # tünd yaşıl - MetaFarm rəngi
+  adaptive_icon_monochrome: "assets/app_icon/app.png"
+
+  # ── iOS ──────────────────────────────────
+  ios: true
+  remove_alpha_ios: true # iOS şəffaf fonu qəbul etmir
+
+  # ── Web (əlavə olaraq) ───────────────────
+  web:
+    generate: true
+    image_path: "assets/app_icon/app.png"
+    background_color: "#1A6420"
+    theme_color: "#1A6420"
+
+  # ── Windows (əlavə olaraq) ───────────────
+  windows:
+    generate: true
+    image_path: "assets/app_icon/app.png"
+    icon_size: 48
+
 flutter:
   uses-material-design: true
+
+  # App ikonunun asset kimi qeydiyyatı
+  assets:
+    - assets/app_icon/

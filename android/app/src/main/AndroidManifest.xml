@@ -17,7 +17,7 @@
     <!-- Vibrasiya (bildiriş ucun) -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <application android:label="meta_tracking" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
+    <application android:label="Metafarm" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
 
         <!-- Google Maps API Key -->
         <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyCQW4_nhZaL0TCbN8VVCnoFiJs4WQ8H1T4" />
