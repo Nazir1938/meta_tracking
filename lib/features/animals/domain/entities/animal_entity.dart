@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 enum AnimalType { cattle, sheep, horse, goat, pig, other }
+
 enum AnimalZoneStatus { inside, outside, alert }
 
 class AnimalEntity extends Equatable {
@@ -40,9 +41,24 @@ class AnimalEntity extends Equatable {
     required this.createdAt,
   });
 
+  // FIX: zoneId və zoneName props-a əlavə edildi.
+  // Əvvəl props-da yox idi — Equatable zoneId dəyişəndə obyektləri
+  // "eyni" hesab edirdi, BLoC yeni state emit etmirdi, UI yenilənmirdi.
   @override
-  List<Object?> get props => [id, name, type, ownerId, isTracking, zoneStatus];
+  List<Object?> get props => [
+        id,
+        name,
+        type,
+        ownerId,
+        isTracking,
+        zoneStatus,
+        zoneId,
+        zoneName,
+      ];
 
+  /// zoneId/zoneName null-a sıfırlamaq üçün clearZone: true istifadə et.
+  /// Dart-da nullable parametrləri null-a sıfırlamaq mümkün deyil (?? operatoru),
+  /// buna görə explicit flag əlavə edilib.
   AnimalEntity copyWith({
     String? id,
     String? name,
@@ -60,6 +76,7 @@ class AnimalEntity extends Equatable {
     double? speed,
     String? notes,
     DateTime? createdAt,
+    bool clearZone = false,
   }) {
     return AnimalEntity(
       id: id ?? this.id,
@@ -72,8 +89,8 @@ class AnimalEntity extends Equatable {
       lastLongitude: lastLongitude ?? this.lastLongitude,
       lastUpdate: lastUpdate ?? this.lastUpdate,
       zoneStatus: zoneStatus ?? this.zoneStatus,
-      zoneName: zoneName ?? this.zoneName,
-      zoneId: zoneId ?? this.zoneId,
+      zoneName: clearZone ? null : (zoneName ?? this.zoneName),
+      zoneId: clearZone ? null : (zoneId ?? this.zoneId),
       batteryLevel: batteryLevel ?? this.batteryLevel,
       speed: speed ?? this.speed,
       notes: notes ?? this.notes,
@@ -83,23 +100,35 @@ class AnimalEntity extends Equatable {
 
   String get typeEmoji {
     switch (type) {
-      case AnimalType.cattle: return '🐄';
-      case AnimalType.sheep:  return '🐑';
-      case AnimalType.horse:  return '🐎';
-      case AnimalType.goat:   return '🐐';
-      case AnimalType.pig:    return '🐖';
-      case AnimalType.other:  return '🐾';
+      case AnimalType.cattle:
+        return '🐄';
+      case AnimalType.sheep:
+        return '🐑';
+      case AnimalType.horse:
+        return '🐎';
+      case AnimalType.goat:
+        return '🐐';
+      case AnimalType.pig:
+        return '🐖';
+      case AnimalType.other:
+        return '🐾';
     }
   }
 
   String get typeName {
     switch (type) {
-      case AnimalType.cattle: return 'İnək';
-      case AnimalType.sheep:  return 'Qoyun';
-      case AnimalType.horse:  return 'At';
-      case AnimalType.goat:   return 'Keçi';
-      case AnimalType.pig:    return 'Donuz';
-      case AnimalType.other:  return 'Digər';
+      case AnimalType.cattle:
+        return 'İnək';
+      case AnimalType.sheep:
+        return 'Qoyun';
+      case AnimalType.horse:
+        return 'At';
+      case AnimalType.goat:
+        return 'Keçi';
+      case AnimalType.pig:
+        return 'Donuz';
+      case AnimalType.other:
+        return 'Digər';
     }
   }
 }

@@ -21,10 +21,6 @@ class AnimalModel extends AnimalEntity {
     required super.createdAt,
   });
 
-  // ── Firestore-dan oxu ─────────────────────────────────────────────────────
-  // FIX: lastLatitude, lastLongitude, speed, batteryLevel, lastUpdate
-  // artıq Firestore-da saxlanır — updateLocation həm RTDB həm FS-ə yazır.
-
   factory AnimalModel.fromFirestore(
       DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
@@ -40,7 +36,6 @@ class AnimalModel extends AnimalEntity {
       zoneId: d['zoneId'] as String?,
       notes: d['notes'] as String?,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      // ── FIX: GPS koordinatları Firestore-dan oxunur ──────────────────────
       lastLatitude: (d['lastLatitude'] as num?)?.toDouble(),
       lastLongitude: (d['lastLongitude'] as num?)?.toDouble(),
       lastUpdate: (d['lastUpdate'] as Timestamp?)?.toDate(),
@@ -49,22 +44,21 @@ class AnimalModel extends AnimalEntity {
     );
   }
 
-  // ── Firestore-a yaz ───────────────────────────────────────────────────────
-
+  // FIX: zoneId/zoneName null olduqda FieldValue.delete() istifadə et.
+  // Əvvəl `if (zoneId != null)` şərti field-ləri ümumiyyətlə yazmırdı —
+  // Firestore-da köhnə dəyər qalırdı, "Çıxar" işləmirdi.
   Map<String, dynamic> toFirestore() => {
         'name': name,
         'type': type.name,
         'ownerId': ownerId,
-        if (chipId != null) 'chipId': chipId,
+        'chipId': chipId ?? FieldValue.delete(),
         'isTracking': isTracking,
         'zoneStatus': zoneStatus.name,
-        if (zoneId != null) 'zoneId': zoneId,
-        if (zoneName != null) 'zoneName': zoneName,
-        if (notes != null) 'notes': notes,
+        'zoneId': zoneId ?? FieldValue.delete(),
+        'zoneName': zoneName ?? FieldValue.delete(),
+        'notes': notes ?? FieldValue.delete(),
         'createdAt': Timestamp.fromDate(createdAt),
       };
-
-  // ── GPS məlumatları ilə birləşdir (köhnə RTDB merge üçün saxlanır) ────────
 
   AnimalModel copyWithModel({
     double? lastLatitude,
@@ -86,17 +80,15 @@ class AnimalModel extends AnimalEntity {
       lastLatitude: lastLatitude ?? this.lastLatitude,
       lastLongitude: lastLongitude ?? this.lastLongitude,
       lastUpdate: lastUpdate ?? this.lastUpdate,
+      batteryLevel: batteryLevel ?? this.batteryLevel,
+      speed: speed ?? this.speed,
       zoneStatus: zoneStatus ?? this.zoneStatus,
       zoneName: zoneName ?? this.zoneName,
       zoneId: zoneId ?? this.zoneId,
-      batteryLevel: batteryLevel ?? this.batteryLevel,
-      speed: speed ?? this.speed,
       notes: notes,
       createdAt: createdAt,
     );
   }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
 
   static AnimalType _parseType(String? s) {
     switch (s) {
@@ -104,14 +96,14 @@ class AnimalModel extends AnimalEntity {
         return AnimalType.cattle;
       case 'sheep':
         return AnimalType.sheep;
-      case 'horse':
-        return AnimalType.horse;
       case 'goat':
         return AnimalType.goat;
+      case 'horse':
+        return AnimalType.horse;
       case 'pig':
         return AnimalType.pig;
       default:
-        return AnimalType.other;
+        return AnimalType.cattle;
     }
   }
 
@@ -119,6 +111,8 @@ class AnimalModel extends AnimalEntity {
     switch (s) {
       case 'inside':
         return AnimalZoneStatus.inside;
+      case 'outside':
+        return AnimalZoneStatus.outside;
       case 'alert':
         return AnimalZoneStatus.alert;
       default:

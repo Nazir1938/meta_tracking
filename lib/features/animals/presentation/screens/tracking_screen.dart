@@ -13,11 +13,6 @@ import 'package:meta_tracking/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:meta_tracking/features/home/presentation/screens/animal_detail_screen.dart';
 import 'package:meta_tracking/features/map/presentation/screens/map_screen.dart';
 
-// FIX: GPS listener buradan silindi.
-// TrackingService (HomePage-də başladılır) artıq bütün isTracking=true
-// heyvanlar üçün GPS mövqeyini Firestore-a yazır.
-// Bu ekranda dublikat listener saxlamaq → hər GPS yeniləməsini 2x yazırdı.
-
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key});
 
@@ -169,6 +164,13 @@ class TrackingScreenState extends State<TrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // BottomAppBar yüksekliyi + FAB üçün boşluq
+    // HomePage-in BottomAppBar-ı 60px + sistem navigasiya çubuğu
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    const bottomBarHeight = 60.0;
+    // Seçim FAB-ı bu yüksekliyin üstündə görünməlidir
+    final fabBottom = bottomInset + bottomBarHeight + 16;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -225,98 +227,121 @@ class TrackingScreenState extends State<TrackingScreen> {
             ),
           );
 
-          return Scaffold(
-            backgroundColor: const Color(0xFFF4F6F9),
-            body: RefreshIndicator(
-              color: const Color(0xFF1D9E75),
-              displacement: MediaQuery.of(context).padding.top + 8,
-              edgeOffset: 0,
-              onRefresh: refreshAnimals,
-              child: _headerHeight == 0
-                  ? Stack(children: [
-                      Positioned(
-                          top: -9999, left: 0, right: 0, child: headerWidget),
-                      const Center(
-                          child: CircularProgressIndicator(
-                              color: Color(0xFF1D9E75))),
-                    ])
-                  : CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: _StickyHeaderDelegate(
-                            child: headerWidget,
-                            height: _headerHeight,
-                          ),
-                        ),
-                        if (filtered.isEmpty)
-                          SliverFillRemaining(
-                            child: _EmptyState(
-                              message:
-                                  state is AnimalError ? state.message : null,
-                              filterActive: _filterStatus != 'all',
-                              onClearFilter: () =>
-                                  setState(() => _filterStatus = 'all'),
-                            ),
-                          )
-                        else
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (_, i) {
-                                  final animal = filtered[i];
-                                  return AnimalListCard(
-                                    animal: animal,
-                                    isSelected:
-                                        _selectedIds.contains(animal.id),
-                                    selectMode: _selectMode,
-                                    onLongPress: () => setState(() {
-                                      _selectMode = true;
-                                      _selectedIds.add(animal.id);
-                                    }),
-                                    onTap: () {
-                                      if (_selectMode) {
-                                        setState(() {
-                                          _selectedIds.contains(animal.id)
-                                              ? _selectedIds.remove(animal.id)
-                                              : _selectedIds.add(animal.id);
-                                        });
-                                      } else {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => AnimalDetailScreen(
-                                                animal: animal),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  );
-                                },
-                                childCount: filtered.length,
+          // FIX: FAB-ı Scaffold floatingActionButton əvəzinə Stack ilə
+          // manual yerləşdiririk. Belə olduqda o, HomePage-in BottomAppBar-ının
+          // üstündə düzgün görünür.
+          return Stack(
+            children: [
+              Scaffold(
+                backgroundColor: const Color(0xFFF4F6F9),
+                body: RefreshIndicator(
+                  color: const Color(0xFF1D9E75),
+                  displacement: MediaQuery.of(context).padding.top + 8,
+                  edgeOffset: 0,
+                  onRefresh: refreshAnimals,
+                  child: _headerHeight == 0
+                      ? Stack(children: [
+                          Positioned(
+                              top: -9999,
+                              left: 0,
+                              right: 0,
+                              child: headerWidget),
+                          const Center(
+                              child: CircularProgressIndicator(
+                                  color: Color(0xFF1D9E75))),
+                        ])
+                      : CustomScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          slivers: [
+                            SliverPersistentHeader(
+                              pinned: true,
+                              delegate: _StickyHeaderDelegate(
+                                child: headerWidget,
+                                height: _headerHeight,
                               ),
                             ),
-                          ),
-                      ],
+                            if (filtered.isEmpty)
+                              SliverFillRemaining(
+                                child: _EmptyState(
+                                  message: state is AnimalError
+                                      ? state.message
+                                      : null,
+                                  filterActive: _filterStatus != 'all',
+                                  onClearFilter: () =>
+                                      setState(() => _filterStatus = 'all'),
+                                ),
+                              )
+                            else
+                              SliverPadding(
+                                // FIX: alt padding artırıldı ki FAB üstüne düşməsin
+                                padding: EdgeInsets.fromLTRB(
+                                    16, 12, 16, fabBottom + 56),
+                                sliver: SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (_, i) {
+                                      final animal = filtered[i];
+                                      return AnimalListCard(
+                                        animal: animal,
+                                        isSelected:
+                                            _selectedIds.contains(animal.id),
+                                        selectMode: _selectMode,
+                                        onLongPress: () => setState(() {
+                                          _selectMode = true;
+                                          _selectedIds.add(animal.id);
+                                        }),
+                                        onTap: () {
+                                          if (_selectMode) {
+                                            setState(() {
+                                              _selectedIds.contains(animal.id)
+                                                  ? _selectedIds
+                                                      .remove(animal.id)
+                                                  : _selectedIds.add(animal.id);
+                                            });
+                                          } else {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    AnimalDetailScreen(
+                                                        animal: animal),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      );
+                                    },
+                                    childCount: filtered.length,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                ),
+              ),
+
+              // FIX: Seçim FAB-ı — BottomAppBar-ın üstündə sabit durur
+              if (_selectedIds.isNotEmpty)
+                Positioned(
+                  bottom: fabBottom,
+                  left: 24,
+                  right: 24,
+                  child: SafeArea(
+                    top: false,
+                    child: FloatingActionButton.extended(
+                      heroTag: 'fab_group_action',
+                      onPressed: () => _showGroupActions(animals),
+                      backgroundColor: const Color(0xFF185FA5),
+                      elevation: 6,
+                      icon: const Icon(Iconsax.people,
+                          color: Colors.white, size: 20),
+                      label: Text(
+                        '${_selectedIds.length} heyvan seçildi — Əməliyyat',
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
                     ),
-            ),
-            floatingActionButton: _selectedIds.isNotEmpty
-                ? FloatingActionButton.extended(
-                    heroTag: 'fab_group_action',
-                    onPressed: () => _showGroupActions(animals),
-                    backgroundColor: const Color(0xFF185FA5),
-                    icon: const Icon(Iconsax.people,
-                        color: Colors.white, size: 20),
-                    label: Text(
-                      '${_selectedIds.length} seçildi',
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w700),
-                    ),
-                  )
-                : null,
-            floatingActionButtonLocation:
-                FloatingActionButtonLocation.centerFloat,
+                  ),
+                ),
+            ],
           );
         },
       ),

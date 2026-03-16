@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
@@ -5,9 +6,14 @@ import 'package:meta_tracking/features/animals/domain/entities/animal_entity.dar
 import 'package:meta_tracking/features/animals/presentation/bloc/animal_bloc.dart';
 import 'package:meta_tracking/features/zones/domain/entities/zone_entity.dart';
 
-/// Zona üzərinə tıklandıqda açılan sheet.
-/// — Həmin zonada olan heyvanları göstərir (offline: zoneId field-dən)
-/// — "Bu zonaya heyvan əlavə et" tab-ı ilə heyvan seçib zoneId yeniləyir
+/// Zona sheet — v4
+///
+/// Düzəltmələr:
+/// 1. _withZone / manual copy silindi → copyWith(clearZone: true) istifadə edilir
+/// 2. StreamSubscription-da GPS yeniləmələrindən qaynaqlanan çoxlu setState()
+///    loop-unu kəsmək üçün debounce əlavə edildi (_pendingUpdate Timer)
+/// 3. Optimistic UI saxlanıldı (dərhal görünür), Firestore cavabı gəldikdə
+///    stream state-i yenilənir
 class ZoneAnimalSheet extends StatefulWidget {
   final ZoneEntity zone;
   final List<AnimalEntity> allAnimals;
@@ -33,26 +39,89 @@ class ZoneAnimalSheet extends StatefulWidget {
 class _ZoneAnimalSheetState extends State<ZoneAnimalSheet>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
+  List<AnimalEntity> _animals = [];
+  StreamSubscription<AnimalState>? _sub;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _tab = TabController(length: 2, vsync: this);
+
+    final bloc = context.read<AnimalBloc>();
+    final state = bloc.state;
+    _animals = state is AnimalLoaded
+        ? List.from(state.animals)
+        : List.from(widget.allAnimals);
+
+    // Stream-ə qoşul — GPS yeniləmələrini debounce ilə sıxışdır
+    _sub = bloc.stream.listen((s) {
+      if (!mounted) return;
+      if (s is AnimalLoaded) {
+        // 150ms debounce: GPS update-ləri çox tez gəlir,
+        // hər birində setState() çağırmaq yerinə sonuncusunu götürürük
+        _debounce?.cancel();
+        _debounce = Timer(const Duration(milliseconds: 150), () {
+          if (mounted) setState(() => _animals = List.from(s.animals));
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _sub?.cancel();
     _tab.dispose();
     super.dispose();
   }
 
-  // Həmin zonaya aid heyvanlar
   List<AnimalEntity> get _zoneAnimals =>
-      widget.allAnimals.where((a) => a.zoneId == widget.zone.id).toList();
+      _animals.where((a) => a.zoneId == widget.zone.id).toList();
 
-  // Başqa zonada / zonasız heyvanlar
   List<AnimalEntity> get _otherAnimals =>
-      widget.allAnimals.where((a) => a.zoneId != widget.zone.id).toList();
+      _animals.where((a) => a.zoneId != widget.zone.id).toList();
+
+  void _addToZone(AnimalEntity animal) {
+    // Optimistic update — dərhal UI-da göstər
+    setState(() {
+      _animals = _animals
+          .map((a) => a.id == animal.id
+              ? a.copyWith(zoneId: widget.zone.id, zoneName: widget.zone.name)
+              : a)
+          .toList();
+    });
+    // Firestore-a yaz
+    context.read<AnimalBloc>().add(EditAnimalEvent(
+          animalId: animal.id,
+          name: animal.name,
+          type: animal.type,
+          chipId: animal.chipId,
+          notes: animal.notes,
+          zoneId: widget.zone.id,
+          zoneName: widget.zone.name,
+        ));
+  }
+
+  void _removeFromZone(AnimalEntity animal) {
+    // Optimistic update — dərhal UI-da çıxar
+    // FIX: clearZone: true istifadə edilir, əks halda copyWith zoneId=null-ı qəbul etmir
+    setState(() {
+      _animals = _animals
+          .map((a) => a.id == animal.id ? a.copyWith(clearZone: true) : a)
+          .toList();
+    });
+    // Firestore-a yaz
+    context.read<AnimalBloc>().add(EditAnimalEvent(
+          animalId: animal.id,
+          name: animal.name,
+          type: animal.type,
+          chipId: animal.chipId,
+          notes: animal.notes,
+          zoneId: null,
+          zoneName: null,
+        ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +134,6 @@ class _ZoneAnimalSheetState extends State<ZoneAnimalSheet>
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        // Handle
         Padding(
           padding: const EdgeInsets.only(top: 10),
           child: Container(
@@ -76,11 +144,7 @@ class _ZoneAnimalSheetState extends State<ZoneAnimalSheet>
                 borderRadius: BorderRadius.circular(2)),
           ),
         ),
-
-        // Zona başlığı
         _ZoneHeader(zone: widget.zone, color: color, onFocus: widget.onFocus),
-
-        // Tab bar
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Container(
@@ -107,28 +171,16 @@ class _ZoneAnimalSheetState extends State<ZoneAnimalSheet>
             ),
           ),
         ),
-
-        // Tab içərikləri
         SizedBox(
           height: 260,
           child: TabBarView(
             controller: _tab,
             children: [
-              _ZoneAnimalsTab(
-                animals: _zoneAnimals,
-                zone: widget.zone,
-                onRemove: _removeFromZone,
-              ),
-              _AddAnimalsTab(
-                animals: _otherAnimals,
-                zone: widget.zone,
-                onAdd: _addToZone,
-              ),
+              _ZoneAnimalsTab(animals: _zoneAnimals, onRemove: _removeFromZone),
+              _AddAnimalsTab(animals: _otherAnimals, onAdd: _addToZone),
             ],
           ),
         ),
-
-        // Əməliyyat düymələri
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: Row(children: [
@@ -158,33 +210,6 @@ class _ZoneAnimalSheetState extends State<ZoneAnimalSheet>
     );
   }
 
-  void _addToZone(AnimalEntity animal) {
-    // EditAnimalEvent-də ownerId yoxdur — animal_bloc.dart-a uyğun
-    context.read<AnimalBloc>().add(EditAnimalEvent(
-          animalId: animal.id,
-          name: animal.name,
-          type: animal.type,
-          chipId: animal.chipId,
-          notes: animal.notes,
-          zoneId: widget.zone.id,
-          zoneName: widget.zone.name,
-        ));
-    setState(() {});
-  }
-
-  void _removeFromZone(AnimalEntity animal) {
-    context.read<AnimalBloc>().add(EditAnimalEvent(
-          animalId: animal.id,
-          name: animal.name,
-          type: animal.type,
-          chipId: animal.chipId,
-          notes: animal.notes,
-          zoneId: null,
-          zoneName: null,
-        ));
-    setState(() {});
-  }
-
   Widget _actionBtn(
           IconData icon, String label, Color color, VoidCallback onTap) =>
       GestureDetector(
@@ -208,14 +233,10 @@ class _ZoneAnimalSheetState extends State<ZoneAnimalSheet>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Zona başlığı
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _ZoneHeader extends StatelessWidget {
   final ZoneEntity zone;
   final Color color;
   final VoidCallback onFocus;
-
   const _ZoneHeader(
       {required this.zone, required this.color, required this.onFocus});
 
@@ -231,15 +252,18 @@ class _ZoneHeader extends StatelessWidget {
       ),
       child: Row(children: [
         Container(
-          width: 42,
-          height: 42,
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(12),
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Center(
-              child: Text(_emoji(zone.name),
-                  style: const TextStyle(fontSize: 20))),
+          child: Icon(
+            zone.zoneType == ZoneType.polygon
+                ? Iconsax.shapes
+                : Iconsax.location,
+            color: color,
+            size: 18,
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -247,67 +271,37 @@ class _ZoneHeader extends StatelessWidget {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(zone.name,
                 style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                     color: Color(0xFF1A1A2E))),
-            const SizedBox(height: 2),
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  zone.isActive ? 'Aktiv' : 'Deaktiv',
-                  style: TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w700, color: color),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(zone.displayRadius,
-                  style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-            ]),
+            if (zone.description?.isNotEmpty == true) ...[
+              const SizedBox(height: 2),
+              Text(zone.description!,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+            ],
           ]),
         ),
         GestureDetector(
           onTap: onFocus,
           child: Container(
-            width: 34,
-            height: 34,
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Iconsax.location, color: color, size: 16),
+            child: Icon(Iconsax.location_tick, color: color, size: 16),
           ),
         ),
       ]),
     );
   }
-
-  String _emoji(String name) {
-    final n = name.toLowerCase();
-    if (n.contains('otlaq') || n.contains('çəmən')) return '🌿';
-    if (n.contains('orman') || n.contains('meşə')) return '🌳';
-    if (n.contains('ahır') || n.contains('bina')) return '🏠';
-    if (n.contains('su')) return '💧';
-    if (n.contains('qarantina') || n.contains('qadağa')) return '🔒';
-    return '📍';
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab 1: Zonada olan heyvanlar
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _ZoneAnimalsTab extends StatelessWidget {
   final List<AnimalEntity> animals;
-  final ZoneEntity zone;
   final void Function(AnimalEntity) onRemove;
-
-  const _ZoneAnimalsTab(
-      {required this.animals, required this.zone, required this.onRemove});
+  const _ZoneAnimalsTab({required this.animals, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +318,6 @@ class _ZoneAnimalsTab extends StatelessWidget {
         ]),
       );
     }
-
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: animals.length,
@@ -351,16 +344,10 @@ class _ZoneAnimalsTab extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab 2: Heyvan əlavə et
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _AddAnimalsTab extends StatelessWidget {
   final List<AnimalEntity> animals;
-  final ZoneEntity zone;
   final void Function(AnimalEntity) onAdd;
-
-  const _AddAnimalsTab(
-      {required this.animals, required this.zone, required this.onAdd});
+  const _AddAnimalsTab({required this.animals, required this.onAdd});
 
   @override
   Widget build(BuildContext context) {
@@ -374,16 +361,14 @@ class _AddAnimalsTab extends StatelessWidget {
         ]),
       );
     }
-
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: animals.length,
       itemBuilder: (_, i) {
         final a = animals[i];
-        final currentZone = a.zoneName ?? 'Zona yoxdur';
         return _AnimalRow(
           animal: a,
-          subtitle: currentZone,
+          subtitle: a.zoneName ?? 'Zonasız',
           trailing: GestureDetector(
             onTap: () => onAdd(a),
             child: Container(
@@ -392,7 +377,7 @@ class _AddAnimalsTab extends StatelessWidget {
                 color: const Color(0xFF1D9E75).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text('Əlavə et',
+              child: const Text('Əlavə Et',
                   style: TextStyle(
                       fontSize: 10,
                       color: Color(0xFF1D9E75),
@@ -406,102 +391,41 @@ class _AddAnimalsTab extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Heyvan satırı (reusable)
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _AnimalRow extends StatelessWidget {
   final AnimalEntity animal;
-  final Widget trailing;
   final String? subtitle;
-
+  final Widget trailing;
   const _AnimalRow(
-      {required this.animal, required this.trailing, this.subtitle});
+      {required this.animal, this.subtitle, required this.trailing});
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _statusColor(animal.zoneStatus);
-    final statusLabel = _statusLabel(animal.zoneStatus);
-
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F9),
+        color: const Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade100),
       ),
       child: Row(children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-              child:
-                  Text(animal.typeEmoji, style: const TextStyle(fontSize: 18))),
-        ),
+        Text(animal.typeEmoji, style: const TextStyle(fontSize: 22)),
         const SizedBox(width: 10),
         Expanded(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(animal.name,
                 style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                     color: Color(0xFF1A1A2E))),
             if (subtitle != null)
               Text(subtitle!,
-                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis)
-            else
-              Row(children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(statusLabel,
-                    style: TextStyle(fontSize: 10, color: statusColor)),
-                if (animal.lastLatitude != null) ...[
-                  const SizedBox(width: 6),
-                  Icon(Iconsax.location, size: 9, color: Colors.grey[400]),
-                  const SizedBox(width: 2),
-                  Text('GPS aktiv',
-                      style: TextStyle(fontSize: 9, color: Colors.grey[400])),
-                ],
-              ]),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
           ]),
         ),
         trailing,
       ]),
     );
-  }
-
-  Color _statusColor(AnimalZoneStatus s) {
-    switch (s) {
-      case AnimalZoneStatus.inside:
-        return const Color(0xFF1D9E75);
-      case AnimalZoneStatus.outside:
-        return const Color(0xFF185FA5);
-      case AnimalZoneStatus.alert:
-        return const Color(0xFFE24B4A);
-    }
-  }
-
-  String _statusLabel(AnimalZoneStatus s) {
-    switch (s) {
-      case AnimalZoneStatus.inside:
-        return 'İçərdə';
-      case AnimalZoneStatus.outside:
-        return 'Xaricdə';
-      case AnimalZoneStatus.alert:
-        return 'Alert';
-    }
   }
 }

@@ -46,9 +46,6 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
       _firestore.collection('animals');
 
   // ── Watch ─────────────────────────────────────────────────────────────────
-  // FIX: asyncMap + RTDB.get() əvəzinə sadə .map() — koordinatlar artıq
-  // Firestore-da saxlanır (updateLocation həm FS-ə yazır), buna görə stream
-  // GPS yeniləndikdə dərhal tetiklenir və xəritə markeri yenilənir.
 
   @override
   Stream<List<AnimalModel>> watchAnimals(String ownerId) {
@@ -79,7 +76,15 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
     AppLogger.melumat('ANIMAL DS', 'Heyvan əlavə edilir: ${animal.name}');
     try {
       final ref = await _col.add({
-        ...animal.toFirestore(),
+        'name': animal.name,
+        'type': animal.type.name,
+        'ownerId': animal.ownerId,
+        if (animal.chipId != null) 'chipId': animal.chipId,
+        'isTracking': false,
+        'zoneStatus': AnimalZoneStatus.outside.name,
+        if (animal.zoneId != null) 'zoneId': animal.zoneId,
+        if (animal.zoneName != null) 'zoneName': animal.zoneName,
+        if (animal.notes != null) 'notes': animal.notes,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -105,13 +110,26 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
   }
 
   // ── Update ────────────────────────────────────────────────────────────────
+  // FIX: toFirestore() bypass edildi.
+  // Əvvəl toFirestore()-da `if (zoneId != null) 'zoneId': zoneId` var idi —
+  // yəni zoneId=null olduqda field heç yazılmırdı, Firestore-da köhnə qalırdı.
+  // İndi birbaşa map yazılır: zoneId null-dırsa FieldValue.delete() istifadə edilir.
 
   @override
   Future<void> updateAnimal(AnimalModel animal) async {
     AppLogger.melumat('ANIMAL DS', 'Heyvan yenilənir: ${animal.id}');
     try {
       await _col.doc(animal.id).update({
-        ...animal.toFirestore(),
+        'name': animal.name,
+        'type': animal.type.name,
+        'isTracking': animal.isTracking,
+        'zoneStatus': animal.zoneStatus.name,
+        // CRITICAL FIX: null-dursa Firestore-dan sil, dolu-dursa yaz
+        'zoneId': animal.zoneId ?? FieldValue.delete(),
+        'zoneName': animal.zoneName ?? FieldValue.delete(),
+        // Nullable field-lər üçün eyni pattern
+        'chipId': animal.chipId ?? FieldValue.delete(),
+        'notes': animal.notes ?? FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
       AppLogger.ugur('ANIMAL DS', 'Heyvan yeniləndi: ${animal.id}');
@@ -169,14 +187,6 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
     });
   }
 
-  // FIX: updateLocation artıq həm RTDB-ə həm də Firestore-a yazır.
-  // ┌─────────────────────────────────────────────────────────────────┐
-  // │ Niyə ikisi də?                                                  │
-  // │ • RTDB  → real GPS cihazları üçün saxlanır (gələcək üçün)      │
-  // │ • Firestore → watchAnimals stream-ini tetikləyir,               │
-  // │              telefon GPS test rejimində xəritəni yeniləyir      │
-  // └─────────────────────────────────────────────────────────────────┘
-
   @override
   Future<void> updateLocation(
     String animalId,
@@ -186,7 +196,6 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
     double battery,
   ) async {
     try {
-      // 1. RTDB-ə yaz (real GPS cihazları üçün əsas mənbə saxlanır)
       await _database.ref('locations/$animalId').set({
         'lat': lat,
         'lng': lng,
@@ -195,8 +204,6 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
         'updatedAt': ServerValue.timestamp,
       });
 
-      // 2. Firestore-a da yaz → watchAnimals stream tetiklənir →
-      //    BlocBuilder yenilənir → xəritədə marker real-time hərəkət edir
       await _col.doc(animalId).update({
         'lastLatitude': lat,
         'lastLongitude': lng,
