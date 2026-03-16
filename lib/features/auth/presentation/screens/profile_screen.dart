@@ -4,11 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:meta_tracking/features/animals/presentation/bloc/animal_bloc.dart';
 import 'package:meta_tracking/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:meta_tracking/features/auth/presentation/screens/gpstracker_mode_screen.dart';
 import 'package:meta_tracking/features/auth/presentation/widgets/profile_widgets.dart';
 import 'package:meta_tracking/features/herds/presentation/bloc/herd_bloc.dart';
 import 'package:meta_tracking/features/herds/presentation/screens/create_herd_sheet.dart';
 import 'package:meta_tracking/features/herds/presentation/screens/herds_screen.dart';
 import 'package:meta_tracking/features/notifications/presentation/bloc/notification_bloc.dart';
+import 'package:meta_tracking/features/zones/presentation/bloc/zone_bloc.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -27,16 +29,15 @@ class ProfileScreen extends StatelessWidget {
           content: const Text('Profil yeniləndi'),
           backgroundColor: const Color(0xFF1D9E75),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         )),
         child: Scaffold(
           backgroundColor: const Color(0xFFF4F6F9),
           body: BlocBuilder<AuthBloc, AuthState>(
             builder: (ctx, authState) {
-              final user = authState is AuthAuthenticated
-                  ? authState.user
-                  : null;
+              final user =
+                  authState is AuthAuthenticated ? authState.user : null;
               final groupLabel = user?.herdGroupLabel ?? 'Sürü';
 
               return RefreshIndicator(
@@ -44,9 +45,7 @@ class ProfileScreen extends StatelessWidget {
                 displacement: MediaQuery.of(context).padding.top + 8,
                 onRefresh: () async {
                   if (user != null) {
-                    context
-                        .read<HerdBloc>()
-                        .add(WatchHerdsEvent(user.id));
+                    context.read<HerdBloc>().add(WatchHerdsEvent(user.id));
                   }
                 },
                 child: CustomScrollView(
@@ -54,8 +53,7 @@ class ProfileScreen extends StatelessWidget {
                   slivers: [
                     SliverToBoxAdapter(child: ProfileHeader(user: user)),
                     SliverPadding(
-                      padding:
-                          const EdgeInsets.fromLTRB(16, 14, 16, 120),
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 120),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
                           const ProfileStatsRow(),
@@ -75,8 +73,7 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          ProfileHerdListSection(
-                              groupLabel: groupLabel),
+                          ProfileHerdListSection(groupLabel: groupLabel),
                           const SizedBox(height: 20),
 
                           // ── Hesab bölməsi ──────────────────────────
@@ -109,8 +106,31 @@ class ProfileScreen extends StatelessWidget {
                               backgroundColor: Colors.transparent,
                               builder: (_) => BlocProvider.value(
                                 value: context.read<NotificationBloc>(),
-                                child:
-                                    const NotificationSettingsSheet(),
+                                child: const NotificationSettingsSheet(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // ── Test bölməsi ───────────────────────────
+                          _lbl('Test'),
+                          const SizedBox(height: 8),
+                          ProfileMenuItem(
+                            icon: Iconsax.location_add,
+                            label: 'GPS Yayıcı Rejimi',
+                            subtitle: 'İkinci telefonla GPS test et',
+                            color: const Color(0xFF9B59B6),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MultiBlocProvider(
+                                  providers: [
+                                    BlocProvider.value(
+                                        value: context.read<AnimalBloc>()),
+                                    BlocProvider.value(
+                                        value: context.read<ZoneBloc>()),
+                                  ],
+                                  child: const GpsTrackerModeScreen(),
+                                ),
                               ),
                             ),
                           ),
@@ -146,9 +166,8 @@ class ProfileScreen extends StatelessWidget {
           // ── FAB — Yeni Sürü yarat ──────────────────────────────────
           floatingActionButton: BlocBuilder<AuthBloc, AuthState>(
             builder: (ctx, auth) {
-              final label = auth is AuthAuthenticated
-                  ? auth.user.herdGroupLabel
-                  : 'Sürü';
+              final label =
+                  auth is AuthAuthenticated ? auth.user.herdGroupLabel : 'Sürü';
               return FloatingActionButton.extended(
                 heroTag: 'fab_profile_herd',
                 onPressed: () {
@@ -168,12 +187,10 @@ class ProfileScreen extends StatelessWidget {
                 },
                 backgroundColor: const Color(0xFF1D9E75),
                 elevation: 4,
-                icon:
-                    const Icon(Iconsax.add, color: Colors.white, size: 20),
+                icon: const Icon(Iconsax.add, color: Colors.white, size: 20),
                 label: Text('Yeni $label',
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700)),
+                        color: Colors.white, fontWeight: FontWeight.w700)),
               );
             },
           ),
@@ -197,31 +214,29 @@ class ProfileScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
-            width: 64, height: 64,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               color: const Color(0xFF1D9E75),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Center(
-                child: Text('🐄', style: TextStyle(fontSize: 32))),
+            child:
+                const Center(child: Text('🐄', style: TextStyle(fontSize: 32))),
           ),
           const SizedBox(height: 14),
           const Text('Meta Tracking',
-              style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w800)),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          Text('Versiya 1.0.0',
-              style: TextStyle(color: Colors.grey[500])),
+          Text('Versiya 1.0.0', style: TextStyle(color: Colors.grey[500])),
         ]),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Bağla',
-                style: TextStyle(color: Color(0xFF1D9E75))),
+            child:
+                const Text('Bağla', style: TextStyle(color: Color(0xFF1D9E75))),
           ),
         ],
       ),

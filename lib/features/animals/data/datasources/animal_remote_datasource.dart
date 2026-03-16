@@ -8,28 +8,13 @@ import 'package:meta_tracking/features/animals/domain/entities/animal_entity.dar
 // ─── Abstract ────────────────────────────────────────────────────────────────
 
 abstract class AnimalRemoteDataSource {
-  /// Heyvanları real-time stream kimi qaytar (Firestore)
   Stream<List<AnimalModel>> watchAnimals(String ownerId);
-
-  /// Heyvan əlavə et → yaradılmış model qaytar
   Future<AnimalModel> addAnimal(AnimalModel animal);
-
-  /// Heyvan məlumatlarını yenilə (ad, tip, çip, zona, qeyd)
   Future<void> updateAnimal(AnimalModel animal);
-
-  /// Heyvanı sil (Firestore + Realtime DB)
   Future<void> deleteAnimal(String animalId);
-
-  /// GPS izləməni başlat
   Future<void> startTracking(String animalId);
-
-  /// GPS izləməni dayandır
   Future<void> stopTracking(String animalId);
-
-  /// Heyvanın canlı GPS mövqeyini dinlə (Realtime DB)
   Stream<Map<String, dynamic>?> watchLocation(String animalId);
-
-  /// GPS mövqeyini yenilə (Realtime DB)
   Future<void> updateLocation(
     String animalId,
     double lat,
@@ -37,8 +22,6 @@ abstract class AnimalRemoteDataSource {
     double speed,
     double battery,
   );
-
-  /// Heyvanın zona statusunu Firestore-da yenilə
   Future<void> updateZoneStatus(
     String animalId,
     AnimalZoneStatus status,
@@ -59,11 +42,13 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _database = database ?? FirebaseDatabase.instance;
 
-  // Firestore collection referansı
   CollectionReference<Map<String, dynamic>> get _col =>
       _firestore.collection('animals');
 
   // ── Watch ─────────────────────────────────────────────────────────────────
+  // FIX: asyncMap + RTDB.get() əvəzinə sadə .map() — koordinatlar artıq
+  // Firestore-da saxlanır (updateLocation həm FS-ə yazır), buna görə stream
+  // GPS yeniləndikdə dərhal tetiklenir və xəritə markeri yenilənir.
 
   @override
   Stream<List<AnimalModel>> watchAnimals(String ownerId) {
@@ -72,37 +57,17 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
         .where('ownerId', isEqualTo: ownerId)
         .orderBy('createdAt', descending: false)
         .snapshots()
-        .asyncMap((snap) async {
+        .map((snap) {
       final animals = <AnimalModel>[];
-
       for (final doc in snap.docs) {
         try {
-          final model = AnimalModel.fromFirestore(doc);
-
-          // Realtime DB-dən canlı GPS məlumatını birləşdir
-          final locationSnap = await _database.ref('locations/${doc.id}').get();
-          if (locationSnap.exists && locationSnap.value != null) {
-            final loc = Map<String, dynamic>.from(locationSnap.value as Map);
-            animals.add(model.copyWithModel(
-              lastLatitude: (loc['lat'] as num?)?.toDouble(),
-              lastLongitude: (loc['lng'] as num?)?.toDouble(),
-              lastUpdate: loc['updatedAt'] != null
-                  ? DateTime.fromMillisecondsSinceEpoch(
-                      (loc['updatedAt'] as num).toInt())
-                  : null,
-              batteryLevel: (loc['battery'] as num?)?.toDouble(),
-              speed: (loc['speed'] as num?)?.toDouble(),
-            ));
-          } else {
-            animals.add(model);
-          }
+          animals.add(AnimalModel.fromFirestore(doc));
         } catch (e) {
           AppLogger.xeta('ANIMAL DS', 'Parse xətası: ${doc.id}',
               xetaObyekti: e);
         }
       }
-
-      AppLogger.ugur('ANIMAL DS', '${animals.length} heyvan yükləndi');
+      AppLogger.ugur('ANIMAL DS', '${animals.length} heyvan alındı');
       return animals;
     });
   }
@@ -163,9 +128,7 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
   Future<void> deleteAnimal(String animalId) async {
     AppLogger.melumat('ANIMAL DS', 'Heyvan silinir: $animalId');
     try {
-      // Firestore sənədini sil
       await _col.doc(animalId).delete();
-      // Realtime DB-dəki GPS məlumatını sil
       await _database.ref('locations/$animalId').remove();
       AppLogger.ugur('ANIMAL DS', 'Heyvan silindi: $animalId');
     } catch (e, st) {
@@ -206,6 +169,14 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
     });
   }
 
+  // FIX: updateLocation artıq həm RTDB-ə həm də Firestore-a yazır.
+  // ┌─────────────────────────────────────────────────────────────────┐
+  // │ Niyə ikisi də?                                                  │
+  // │ • RTDB  → real GPS cihazları üçün saxlanır (gələcək üçün)      │
+  // │ • Firestore → watchAnimals stream-ini tetikləyir,               │
+  // │              telefon GPS test rejimində xəritəni yeniləyir      │
+  // └─────────────────────────────────────────────────────────────────┘
+
   @override
   Future<void> updateLocation(
     String animalId,
@@ -215,6 +186,7 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
     double battery,
   ) async {
     try {
+      // 1. RTDB-ə yaz (real GPS cihazları üçün əsas mənbə saxlanır)
       await _database.ref('locations/$animalId').set({
         'lat': lat,
         'lng': lng,
@@ -222,6 +194,17 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
         'battery': battery,
         'updatedAt': ServerValue.timestamp,
       });
+
+      // 2. Firestore-a da yaz → watchAnimals stream tetiklənir →
+      //    BlocBuilder yenilənir → xəritədə marker real-time hərəkət edir
+      await _col.doc(animalId).update({
+        'lastLatitude': lat,
+        'lastLongitude': lng,
+        'speed': speed,
+        'batteryLevel': battery,
+        'lastUpdate': FieldValue.serverTimestamp(),
+      });
+
       AppLogger.melumat(
           'ANIMAL DS', 'Mövqe yeniləndi: $animalId → ($lat, $lng)');
     } catch (e) {
@@ -242,15 +225,10 @@ class AnimalRemoteDataSourceImpl implements AnimalRemoteDataSource {
     try {
       await _col.doc(animalId).update({
         'zoneStatus': status.name,
-        'zoneId': zoneId,
-        'zoneName': zoneName,
+        if (zoneId != null) 'zoneId': zoneId,
+        if (zoneName != null) 'zoneName': zoneName,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      AppLogger.geofenceHadise(
-        animalId,
-        zoneName ?? 'Naməlum',
-        status == AnimalZoneStatus.inside,
-      );
     } catch (e) {
       AppLogger.xeta('ANIMAL DS', 'Zona status xətası', xetaObyekti: e);
       rethrow;

@@ -1,10 +1,8 @@
 import '../entities/animal_entity.dart';
 
 abstract class AnimalRepository {
-  /// Heyvanları real-time stream kimi qaytar
   Stream<List<AnimalEntity>> watchAnimals(String ownerId);
 
-  /// Yeni heyvan əlavə et
   Future<AnimalEntity> addAnimal({
     required String name,
     required AnimalType type,
@@ -15,16 +13,17 @@ abstract class AnimalRepository {
     String? zoneName,
   });
 
-  /// Mövcud heyvanı yenilə
   Future<void> updateAnimal(AnimalEntity animal);
-
-  /// Heyvanı sil
   Future<void> deleteAnimal(String animalId);
 
-  /// Heyvanın canlı GPS mövqeyini dinlə
+  /// GPS izləməni Firestore-da aktiv et (isTracking = true)
+  Future<void> startTracking(String animalId);
+
+  /// GPS izləməni Firestore-da dayandır (isTracking = false)
+  Future<void> stopTracking(String animalId);
+
   Stream<Map<String, dynamic>?> watchLocation(String animalId);
 
-  /// GPS mövqeyini yenilə
   Future<void> updateLocation(
     String animalId,
     double lat,
@@ -33,7 +32,6 @@ abstract class AnimalRepository {
     double battery,
   );
 
-  /// Zona statusunu yenilə (geofence nəticəsi)
   Future<void> updateZoneStatus(
     String animalId,
     AnimalZoneStatus status,

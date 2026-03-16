@@ -60,7 +60,6 @@ class DeleteHerdEvent extends HerdEvent {
   List<Object?> get props => [herdId];
 }
 
-/// Naxıra tək heyvan əlavə et
 class AddAnimalToHerdEvent extends HerdEvent {
   final String herdId;
   final String animalId;
@@ -69,7 +68,6 @@ class AddAnimalToHerdEvent extends HerdEvent {
   List<Object?> get props => [herdId, animalId];
 }
 
-/// Naxıra çoxlu heyvan əlavə et
 class AddAnimalsToHerdEvent extends HerdEvent {
   final String herdId;
   final List<String> animalIds;
@@ -78,7 +76,6 @@ class AddAnimalsToHerdEvent extends HerdEvent {
   List<Object?> get props => [herdId, animalIds];
 }
 
-/// Naxırdan heyvan çıxar
 class RemoveAnimalFromHerdEvent extends HerdEvent {
   final String herdId;
   final String animalId;
@@ -88,7 +85,6 @@ class RemoveAnimalFromHerdEvent extends HerdEvent {
   List<Object?> get props => [herdId, animalId];
 }
 
-/// Naxır izləməni başlat/dayandır
 class ToggleHerdTrackingEvent extends HerdEvent {
   final String herdId;
   final bool isTracking;
@@ -98,7 +94,6 @@ class ToggleHerdTrackingEvent extends HerdEvent {
   List<Object?> get props => [herdId, isTracking];
 }
 
-/// Yeni GPS məlumatı gəldi — sürüdən ayrılma yoxla
 class CheckHerdSeparationEvent extends HerdEvent {
   final List<AnimalEntity> animals;
   const CheckHerdSeparationEvent(this.animals);
@@ -106,7 +101,6 @@ class CheckHerdSeparationEvent extends HerdEvent {
   List<Object?> get props => [animals];
 }
 
-/// Alertu oxundu kimi işarələ
 class MarkAlertReadEvent extends HerdEvent {
   final String alertId;
   const MarkAlertReadEvent(this.alertId);
@@ -114,12 +108,10 @@ class MarkAlertReadEvent extends HerdEvent {
   List<Object?> get props => [alertId];
 }
 
-/// Bütün alertları sil
 class ClearAlertsEvent extends HerdEvent {
   const ClearAlertsEvent();
 }
 
-// Internal
 class _HerdsUpdatedEvent extends HerdEvent {
   final List<HerdEntity> herds;
   const _HerdsUpdatedEvent(this.herds);
@@ -198,7 +190,6 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
   List<SeparationAlert> _alerts = [];
   Map<String, HerdSeparationResult> _separationResults = {};
 
-  // Alert-ın spam etməməsi üçün son alert vaxtları
   final Map<String, DateTime> _lastAlertTime = {};
   static const _alertCooldown = Duration(minutes: 5);
 
@@ -222,9 +213,13 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
   }
 
   // ── Watch ─────────────────────────────────────────────────────────────────
+  // FIX: onError-dan emit() silindi.
+  // _onWatch handler tamamlanır → stream subscription arxa planda qalır.
+  // onError gec gəlsə handler artıq bitib → emit() crash edir.
+  // Həll: onError-da yalnız add(_HerdsUpdatedEvent) istifadə et
+  // və ya sadəcə log et.
 
-  Future<void> _onWatch(
-      WatchHerdsEvent event, Emitter<HerdState> emit) async {
+  Future<void> _onWatch(WatchHerdsEvent event, Emitter<HerdState> emit) async {
     AppLogger.blocHadise('HerdBloc', 'WatchHerdsEvent: ${event.ownerId}');
     emit(const HerdLoading());
     await _herdsSub?.cancel();
@@ -234,8 +229,9 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
         if (!isClosed) add(_HerdsUpdatedEvent(herds));
       },
       onError: (e) {
+        // emit() burada çağırıla bilməz — handler artıq tamamlanıb.
+        // Sadəcə log et. Firestore index lazımdırsa konsol URL-ini aç.
         AppLogger.xeta('HERD BLOC', 'Stream xətası', xetaObyekti: e);
-        if (!isClosed) emit(HerdError(e.toString()));
       },
     );
   }
@@ -252,8 +248,7 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
 
   // ── Create ────────────────────────────────────────────────────────────────
 
-  Future<void> _onCreate(
-      CreateHerdEvent event, Emitter<HerdState> emit) async {
+  Future<void> _onCreate(CreateHerdEvent event, Emitter<HerdState> emit) async {
     AppLogger.blocHadise('HerdBloc', 'CreateHerdEvent: ${event.name}');
     try {
       final herd = HerdEntity(
@@ -278,8 +273,7 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
 
   // ── Update ────────────────────────────────────────────────────────────────
 
-  Future<void> _onUpdate(
-      UpdateHerdEvent event, Emitter<HerdState> emit) async {
+  Future<void> _onUpdate(UpdateHerdEvent event, Emitter<HerdState> emit) async {
     try {
       await _ds.updateHerd(event.herd);
       emit(HerdOperationSuccess('"${event.herd.name}" yeniləndi'));
@@ -290,8 +284,7 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
 
   // ── Delete ────────────────────────────────────────────────────────────────
 
-  Future<void> _onDelete(
-      DeleteHerdEvent event, Emitter<HerdState> emit) async {
+  Future<void> _onDelete(DeleteHerdEvent event, Emitter<HerdState> emit) async {
     try {
       final herd = _herds.firstWhere((h) => h.id == event.herdId,
           orElse: () => throw Exception('Naxır tapılmadı'));
@@ -308,8 +301,8 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
       AddAnimalToHerdEvent event, Emitter<HerdState> emit) async {
     try {
       await _ds.addAnimalToHerd(event.herdId, event.animalId);
-      AppLogger.ugur('HERD BLOC',
-          'Heyvan naxıra əlavə edildi: ${event.animalId}');
+      AppLogger.ugur(
+          'HERD BLOC', 'Heyvan naxıra əlavə edildi: ${event.animalId}');
     } catch (e) {
       emit(HerdError(e.toString()));
     }
@@ -319,8 +312,8 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
       AddAnimalsToHerdEvent event, Emitter<HerdState> emit) async {
     try {
       await _ds.addAnimalsToHerd(event.herdId, event.animalIds);
-      AppLogger.ugur('HERD BLOC',
-          '${event.animalIds.length} heyvan naxıra əlavə edildi');
+      AppLogger.ugur(
+          'HERD BLOC', '${event.animalIds.length} heyvan naxıra əlavə edildi');
       emit(HerdOperationSuccess(
           '${event.animalIds.length} heyvan naxıra əlavə edildi'));
     } catch (e) {
@@ -354,15 +347,14 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
   }
 
   // ── Check separation ──────────────────────────────────────────────────────
-  // Bu metod GPS yeniləməsi gəldikdə çağırılır
-  // Yalnız isTracking == true olan naxırları yoxlayır
 
   Future<void> _onCheckSeparation(
       CheckHerdSeparationEvent event, Emitter<HerdState> emit) async {
     final trackingHerds = _herds.where((h) => h.isTracking).toList();
     if (trackingHerds.isEmpty) return;
 
-    final newResults = Map<String, HerdSeparationResult>.from(_separationResults);
+    final newResults =
+        Map<String, HerdSeparationResult>.from(_separationResults);
     final newAlerts = List<SeparationAlert>.from(_alerts);
 
     for (final herd in trackingHerds) {
@@ -374,7 +366,6 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
       newResults[herd.id] = result;
 
       if (result.hasSeparation) {
-        // Alert cooldown yoxla — hər 5 dəqiqədə bir alert göndər
         final alerts = HerdTrackingService.generateAlerts(
           herd: herd,
           result: result,
@@ -385,20 +376,18 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
           final lastTime = _lastAlertTime[cooldownKey];
           final now = DateTime.now();
 
-          if (lastTime == null ||
-              now.difference(lastTime) > _alertCooldown) {
+          if (lastTime == null || now.difference(lastTime) > _alertCooldown) {
             newAlerts.add(alert);
             _lastAlertTime[cooldownKey] = now;
-
-            AppLogger.xeberdarliq('HERD BLOC',
+            AppLogger.xeberdarliq(
+                'HERD BLOC',
                 '⚠️ ${alert.animalName} sürüdən ayrıldı! '
-                'Məsafə: ${alert.distanceLabel}');
+                    'Məsafə: ${alert.distanceLabel}');
           }
         }
       }
     }
 
-    // Köhnə alertları təmizlə (24 saatdan köhnə)
     final cutoff = DateTime.now().subtract(const Duration(hours: 24));
     newAlerts.removeWhere((a) => a.timestamp.isBefore(cutoff));
 
@@ -434,8 +423,6 @@ class HerdBloc extends Bloc<HerdEvent, HerdState> {
       emit((state as HerdsLoaded).copyWith(activeAlerts: []));
     }
   }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
 
   List<HerdEntity> get currentHerds => List.unmodifiable(_herds);
   List<SeparationAlert> get activeAlerts => List.unmodifiable(_alerts);

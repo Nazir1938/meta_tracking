@@ -1,8 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
 import 'package:meta_tracking/features/animals/domain/entities/animal_entity.dart';
@@ -15,6 +13,11 @@ import 'package:meta_tracking/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:meta_tracking/features/home/presentation/screens/animal_detail_screen.dart';
 import 'package:meta_tracking/features/map/presentation/screens/map_screen.dart';
 
+// FIX: GPS listener buradan silindi.
+// TrackingService (HomePage-də başladılır) artıq bütün isTracking=true
+// heyvanlar üçün GPS mövqeyini Firestore-a yazır.
+// Bu ekranda dublikat listener saxlamaq → hər GPS yeniləməsini 2x yazırdı.
+
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key});
 
@@ -23,18 +26,10 @@ class TrackingScreen extends StatefulWidget {
 }
 
 class TrackingScreenState extends State<TrackingScreen> {
-  // ── Filter & select state ─────────────────────────────────────────────────
   String _filterStatus = 'all';
   final Set<String> _selectedIds = {};
   bool _selectMode = false;
 
-  // ── GPS ───────────────────────────────────────────────────────────────────
-  StreamSubscription<Position>? _locationSub;
-
-  // ── Sticky header ölçümü ──────────────────────────────────────────────────
-  // SliverPersistentHeader sabit hündürlük tələb edir.
-  // GlobalKey ilə ilk frame-dən sonra real hündürlüyü ölçürük,
-  // sonra CustomScrollView-ı render edirik. Bu yolla heç vaxt overflow olmur.
   final GlobalKey _headerKey = GlobalKey();
   double _headerHeight = 0;
 
@@ -42,18 +37,15 @@ class TrackingScreenState extends State<TrackingScreen> {
   void initState() {
     super.initState();
     AppLogger.ekranAcildi('Tracking Screen');
-    _requestLocationPermission();
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeader());
   }
 
   @override
   void dispose() {
-    _locationSub?.cancel();
     AppLogger.ekranBaglandi('Tracking Screen');
     super.dispose();
   }
 
-  // ── Header hündürlüyünü ölç ───────────────────────────────────────────────
   void _measureHeader() {
     final ctx = _headerKey.currentContext;
     if (ctx == null) return;
@@ -65,7 +57,6 @@ class TrackingScreenState extends State<TrackingScreen> {
     }
   }
 
-  // ── Pull-to-refresh ───────────────────────────────────────────────────────
   Future<void> refreshAnimals() async {
     final auth = context.read<AuthBloc>().state;
     if (auth is AuthAuthenticated) {
@@ -74,97 +65,6 @@ class TrackingScreenState extends State<TrackingScreen> {
     }
   }
 
-  // ── GPS icazə + izləmə ────────────────────────────────────────────────────
-  Future<void> _requestLocationPermission() async {
-    try {
-      LocationPermission p = await Geolocator.checkPermission();
-      if (p == LocationPermission.denied) {
-        p = await Geolocator.requestPermission();
-        AppLogger.melumat('GPS', 'İcazə sorğusu göndərildi');
-      }
-      if (p == LocationPermission.deniedForever) {
-        AppLogger.xeberdarliq('GPS', 'İcazə həmişəlik rədd edildi');
-        if (mounted) _showPermissionDialog();
-        return;
-      }
-      if (p == LocationPermission.whileInUse ||
-          p == LocationPermission.always) {
-        AppLogger.ugur('GPS', 'İcazə verildi');
-        _startLocationTracking();
-      }
-    } catch (e) {
-      AppLogger.xeta('GPS', 'İcazə xətası', xetaObyekti: e);
-    }
-  }
-
-  void _startLocationTracking() {
-    _locationSub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
-      ),
-    ).listen(
-      (pos) {
-        if (!mounted) return;
-        final auth = context.read<AuthBloc>().state;
-        if (auth is! AuthAuthenticated) return;
-
-        final animalState = context.read<AnimalBloc>().state;
-        if (animalState is! AnimalLoaded) return;
-
-        // Yalnız aktiv izlənən heyvanların mövqeyini yenilə
-        for (final animal in animalState.animals.where((a) => a.isTracking)) {
-          context.read<AnimalBloc>().add(UpdateLocationEvent(
-                animalId: animal.id,
-                lat: pos.latitude,
-                lng: pos.longitude,
-                speed: pos.speed,
-                battery: 1.0,
-              ));
-        }
-        AppLogger.melumat(
-            'GPS', 'Mövqe yeniləndi: ${pos.latitude}, ${pos.longitude}');
-      },
-      onError: (e) => AppLogger.xeta('GPS', 'Stream xətası', xetaObyekti: e),
-    );
-    AppLogger.ugur('GPS', 'GPS stream başladı');
-  }
-
-  void _showPermissionDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(children: [
-          Icon(Iconsax.location, color: Color(0xFF1D9E75)),
-          SizedBox(width: 8),
-          Text('GPS İcazəsi', style: TextStyle(fontWeight: FontWeight.w700)),
-        ]),
-        content: const Text(
-          'Heyvanları izləmək üçün GPS icazəsi lazımdır.',
-          style: TextStyle(height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Ləğv et', style: TextStyle(color: Colors.grey[500])),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Geolocator.openAppSettings();
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1D9E75)),
-            child: const Text('Tənzimləmələr',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Filter tətbiq et ──────────────────────────────────────────────────────
   List<AnimalEntity> _applyFilter(List<AnimalEntity> animals) {
     switch (_filterStatus) {
       case 'active':
@@ -178,7 +78,6 @@ class TrackingScreenState extends State<TrackingScreen> {
     }
   }
 
-  // ── Qrup əməliyyatları ────────────────────────────────────────────────────
   void _showGroupActions(List<AnimalEntity> allAnimals) {
     final selected =
         allAnimals.where((a) => _selectedIds.contains(a.id)).toList();
@@ -192,7 +91,6 @@ class TrackingScreenState extends State<TrackingScreen> {
         decoration: BoxDecoration(
             color: Colors.white, borderRadius: BorderRadius.circular(24)),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          // Handle
           Container(
             width: 36,
             height: 4,
@@ -209,7 +107,6 @@ class TrackingScreenState extends State<TrackingScreen> {
                 color: Color(0xFF1A1A2E)),
           ),
           const SizedBox(height: 16),
-          // Xəritədə göstər
           _groupActionTile(
             icon: Iconsax.map,
             label: 'Xəritədə göstər',
@@ -225,7 +122,6 @@ class TrackingScreenState extends State<TrackingScreen> {
             },
           ),
           const SizedBox(height: 10),
-          // Seçimi təmizlə
           _groupActionTile(
             icon: Iconsax.close_circle,
             label: 'Seçimi təmizlə',
@@ -271,7 +167,6 @@ class TrackingScreenState extends State<TrackingScreen> {
     );
   }
 
-  // ── BUILD ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -297,31 +192,26 @@ class TrackingScreenState extends State<TrackingScreen> {
               .where((a) => a.zoneStatus == AnimalZoneStatus.inside)
               .length;
 
-          // Header widget — GlobalKey ilə ölçülür
           final headerWidget = RepaintBoundary(
             key: _headerKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // AppBar: avatar + ad + alert badge + bildiriş
                 TrackingAppBar(
                   animalCount: animals.length,
                   alertCount: alertCount,
                 ),
-                // 4 summary kart
                 TrackingSummaryCards(
                   total: animals.length,
                   active: activeCount,
                   inside: insideCount,
                   alert: alertCount,
                 ),
-                // Filter chipləri + seç düyməsi
                 AnimalFilterBar(
                   activeFilter: _filterStatus,
                   isSelectMode: _selectMode,
                   onFilterChanged: (v) {
                     setState(() => _filterStatus = v);
-                    // Filter dəyişdikdə header hündürlüyünü yenidən ölç
                     WidgetsBinding.instance
                         .addPostFrameCallback((_) => _measureHeader());
                   },
@@ -330,7 +220,6 @@ class TrackingScreenState extends State<TrackingScreen> {
                     if (!_selectMode) _selectedIds.clear();
                   }),
                 ),
-                // Alt ayırıcı xətt
                 Container(height: 0.5, color: Colors.grey.shade200),
               ],
             ),
@@ -340,52 +229,31 @@ class TrackingScreenState extends State<TrackingScreen> {
             backgroundColor: const Color(0xFFF4F6F9),
             body: RefreshIndicator(
               color: const Color(0xFF1D9E75),
-              // pull indicator status bar-ın altından başlasın
               displacement: MediaQuery.of(context).padding.top + 8,
               edgeOffset: 0,
               onRefresh: refreshAnimals,
               child: _headerHeight == 0
-                  // ── İlk frame: header-i ölçmək üçün gizli render ──────
                   ? Stack(children: [
                       Positioned(
-                        top: -9999,
-                        child: SizedBox(
-                          width: MediaQuery.of(context).size.width,
-                          child: headerWidget,
-                        ),
-                      ),
+                          top: -9999, left: 0, right: 0, child: headerWidget),
                       const Center(
-                        child:
-                            CircularProgressIndicator(color: Color(0xFF1D9E75)),
-                      ),
+                          child: CircularProgressIndicator(
+                              color: Color(0xFF1D9E75))),
                     ])
-                  // ── Normal render ─────────────────────────────────────
                   : CustomScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       slivers: [
-                        // ── Sticky header ──────────────────────────────
                         SliverPersistentHeader(
                           pinned: true,
                           delegate: _StickyHeaderDelegate(
-                            height: _headerHeight,
                             child: headerWidget,
+                            height: _headerHeight,
                           ),
                         ),
-
-                        // ── Məzmun ─────────────────────────────────────
-                        if (state is AnimalLoading)
-                          const SliverFillRemaining(
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                  color: Color(0xFF1D9E75)),
-                            ),
-                          )
-                        else if (filtered.isEmpty)
+                        if (filtered.isEmpty)
                           SliverFillRemaining(
-                            hasScrollBody: false,
                             child: _EmptyState(
-                              isError: state is AnimalError,
-                              errorMsg:
+                              message:
                                   state is AnimalError ? state.message : null,
                               filterActive: _filterStatus != 'all',
                               onClearFilter: () =>
@@ -410,14 +278,12 @@ class TrackingScreenState extends State<TrackingScreen> {
                                     }),
                                     onTap: () {
                                       if (_selectMode) {
-                                        // Seçim rejimi: checkbox toggle
                                         setState(() {
                                           _selectedIds.contains(animal.id)
                                               ? _selectedIds.remove(animal.id)
                                               : _selectedIds.add(animal.id);
                                         });
                                       } else {
-                                        // Normal: detal ekranı aç
                                         Navigator.of(context).push(
                                           MaterialPageRoute(
                                             builder: (_) => AnimalDetailScreen(
@@ -435,16 +301,13 @@ class TrackingScreenState extends State<TrackingScreen> {
                       ],
                     ),
             ),
-
-            // ── Qrup seçim FAB-ı ──────────────────────────────────────
             floatingActionButton: _selectedIds.isNotEmpty
                 ? FloatingActionButton.extended(
-                    heroTag: 'fab_group_tracking',
+                    heroTag: 'fab_group_action',
                     onPressed: () => _showGroupActions(animals),
-                    backgroundColor: const Color(0xFF1D9E75),
-                    elevation: 4,
-                    icon: const Icon(Iconsax.location,
-                        color: Colors.white, size: 18),
+                    backgroundColor: const Color(0xFF185FA5),
+                    icon: const Icon(Iconsax.people,
+                        color: Colors.white, size: 20),
                     label: Text(
                       '${_selectedIds.length} seçildi',
                       style: const TextStyle(
@@ -452,6 +315,8 @@ class TrackingScreenState extends State<TrackingScreen> {
                     ),
                   )
                 : null,
+            floatingActionButtonLocation:
+                FloatingActionButtonLocation.centerFloat,
           );
         },
       ),
@@ -459,135 +324,71 @@ class TrackingScreenState extends State<TrackingScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sticky Header Delegate
-// maxExtent == minExtent == ölçülmüş real hündürlük → heç vaxt overflow yoxdur
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Sticky Header Delegate ────────────────────────────────────────────────────
 
 class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final double height;
   final Widget child;
-
-  const _StickyHeaderDelegate({
-    required this.height,
-    required this.child,
-  });
+  final double height;
+  const _StickyHeaderDelegate({required this.child, required this.height});
 
   @override
   Widget build(
           BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      SizedBox(height: height, child: child);
+      child;
 
   @override
   double get maxExtent => height;
-
   @override
   double get minExtent => height;
-
   @override
   bool shouldRebuild(_StickyHeaderDelegate old) =>
       old.height != height || old.child != child;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Empty State Widget
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Empty State ───────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
-  final bool isError;
-  final String? errorMsg;
+  final String? message;
   final bool filterActive;
   final VoidCallback onClearFilter;
 
   const _EmptyState({
-    required this.isError,
-    this.errorMsg,
+    this.message,
     required this.filterActive,
     required this.onClearFilter,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (isError) {
-      return Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE24B4A).withValues(alpha: 0.08),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Iconsax.warning_2,
-                size: 44, color: Color(0xFFE24B4A)),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(
+            filterActive ? Iconsax.filter_search : Iconsax.pet,
+            size: 52,
+            color: Colors.grey[300],
           ),
           const SizedBox(height: 16),
-          const Text('Xəta baş verdi',
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A2E))),
-          if (errorMsg != null) ...[
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                errorMsg!,
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                textAlign: TextAlign.center,
-              ),
+          Text(
+            message ??
+                (filterActive
+                    ? 'Bu filterlə heyvan tapılmadı'
+                    : 'Hələ heç bir heyvan yoxdur.\n+ düyməsindən əlavə edin.'),
+            textAlign: TextAlign.center,
+            style:
+                TextStyle(fontSize: 14, color: Colors.grey[500], height: 1.5),
+          ),
+          if (filterActive) ...[
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: onClearFilter,
+              child: const Text('Filteri Sil',
+                  style: TextStyle(color: Color(0xFF1D9E75))),
             ),
           ],
         ]),
-      );
-    }
-
-    if (filterActive) {
-      // Filter aktiv amma nəticə yoxdur
-      return Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-                color: Colors.grey.shade100, shape: BoxShape.circle),
-            child: Icon(Iconsax.filter, size: 44, color: Colors.grey[400]),
-          ),
-          const SizedBox(height: 16),
-          const Text('Nəticə tapılmadı',
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A2E))),
-          const SizedBox(height: 6),
-          Text('Bu filterlə heyvan yoxdur',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-          const SizedBox(height: 16),
-          TextButton(
-            onPressed: onClearFilter,
-            child: const Text('Filtri təmizlə',
-                style: TextStyle(
-                    color: Color(0xFF1D9E75), fontWeight: FontWeight.w600)),
-          ),
-        ]),
-      );
-    }
-
-    // Heç bir heyvan yoxdur
-    return Center(
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-              color: Colors.grey.shade100, shape: BoxShape.circle),
-          child: const Icon(Iconsax.pet, size: 48, color: Colors.grey),
-        ),
-        const SizedBox(height: 16),
-        const Text('Heyvan tapılmadı',
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey)),
-        const SizedBox(height: 6),
-        Text('+ düyməsindən yeni heyvan əlavə edin',
-            style: TextStyle(fontSize: 12, color: Colors.grey[400])),
-      ]),
+      ),
     );
   }
 }

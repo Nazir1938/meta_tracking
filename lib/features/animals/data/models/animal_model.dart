@@ -22,6 +22,8 @@ class AnimalModel extends AnimalEntity {
   });
 
   // ── Firestore-dan oxu ─────────────────────────────────────────────────────
+  // FIX: lastLatitude, lastLongitude, speed, batteryLevel, lastUpdate
+  // artıq Firestore-da saxlanır — updateLocation həm RTDB həm FS-ə yazır.
 
   factory AnimalModel.fromFirestore(
       DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -38,6 +40,12 @@ class AnimalModel extends AnimalEntity {
       zoneId: d['zoneId'] as String?,
       notes: d['notes'] as String?,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      // ── FIX: GPS koordinatları Firestore-dan oxunur ──────────────────────
+      lastLatitude: (d['lastLatitude'] as num?)?.toDouble(),
+      lastLongitude: (d['lastLongitude'] as num?)?.toDouble(),
+      lastUpdate: (d['lastUpdate'] as Timestamp?)?.toDate(),
+      speed: (d['speed'] as num?)?.toDouble(),
+      batteryLevel: (d['batteryLevel'] as num?)?.toDouble(),
     );
   }
 
@@ -56,7 +64,7 @@ class AnimalModel extends AnimalEntity {
         'createdAt': Timestamp.fromDate(createdAt),
       };
 
-  // ── GPS məlumatları ilə birləşdir ─────────────────────────────────────────
+  // ── GPS məlumatları ilə birləşdir (köhnə RTDB merge üçün saxlanır) ────────
 
   AnimalModel copyWithModel({
     double? lastLatitude,
@@ -90,14 +98,31 @@ class AnimalModel extends AnimalEntity {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  static AnimalType _parseType(String? t) => AnimalType.values.firstWhere(
-        (e) => e.name == t,
-        orElse: () => AnimalType.other,
-      );
+  static AnimalType _parseType(String? s) {
+    switch (s) {
+      case 'cattle':
+        return AnimalType.cattle;
+      case 'sheep':
+        return AnimalType.sheep;
+      case 'horse':
+        return AnimalType.horse;
+      case 'goat':
+        return AnimalType.goat;
+      case 'pig':
+        return AnimalType.pig;
+      default:
+        return AnimalType.other;
+    }
+  }
 
-  static AnimalZoneStatus _parseZoneStatus(String? s) =>
-      AnimalZoneStatus.values.firstWhere(
-        (e) => e.name == s,
-        orElse: () => AnimalZoneStatus.outside,
-      );
+  static AnimalZoneStatus _parseZoneStatus(String? s) {
+    switch (s) {
+      case 'inside':
+        return AnimalZoneStatus.inside;
+      case 'alert':
+        return AnimalZoneStatus.alert;
+      default:
+        return AnimalZoneStatus.outside;
+    }
+  }
 }

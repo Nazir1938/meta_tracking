@@ -9,12 +9,10 @@ import 'package:meta_tracking/features/tracking/domain/entities/animal_location.
 import 'package:meta_tracking/features/zones/presentation/event/zone_event.dart';
 import 'package:meta_tracking/features/zones/presentation/state/zone_state.dart';
 
-
 class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
   late final ZoneRepositoryImpl _repo;
   StreamSubscription<List<ZoneEntity>>? _zonesSub;
 
-  // Firestore-dan gələn canlı siyahı
   List<ZoneEntity> _zones = [];
 
   ZoneBloc() : super(const ZoneInitial()) {
@@ -30,8 +28,6 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
     on<_ZonesUpdatedEvent>(_onZonesUpdated);
   }
 
-  // ── Firestore stream-dən gələn yeniləmə (internal) ───────────────────────
-
   Future<void> _onZonesUpdated(
     _ZonesUpdatedEvent event,
     Emitter<ZoneState> emit,
@@ -40,8 +36,6 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
     emit(ZonesLoaded(List.from(_zones)));
   }
 
-  // ── Yüklə / Stream başlat ────────────────────────────────────────────────
-
   Future<void> _onLoad(
     LoadZonesEvent event,
     Emitter<ZoneState> emit,
@@ -49,7 +43,6 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
     AppLogger.blocHadise('ZoneBloc', 'LoadZonesEvent: ${event.ownerId}');
 
     if (event.ownerId == null) {
-      // ownerId yoxdursa boş emit et (giriş etməmiş user)
       emit(const ZonesLoaded.empty());
       return;
     }
@@ -71,6 +64,8 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
   }
 
   // ── Yarat ────────────────────────────────────────────────────────────────
+  // FIX: zoneType, polygonPoints, areaKm2 event-dən alınır.
+  // Əvvəl bunlar ötürülmürdü — bütün zonalar circle kimi yazılırdı.
 
   Future<void> _onCreate(
     CreateZoneEvent event,
@@ -84,7 +79,6 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
     }
 
     try {
-      // Eyni adda zona yoxla (local)
       final dup =
           _zones.any((z) => z.name.toLowerCase() == event.name.toLowerCase());
       if (dup) {
@@ -96,7 +90,7 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
       }
 
       final zone = ZoneEntity(
-        id: '', // Firestore özü təyin edəcək
+        id: '',
         name: event.name,
         latitude: event.latitude,
         longitude: event.longitude,
@@ -104,6 +98,9 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
         description: event.description,
         createdAt: DateTime.now(),
         isActive: true,
+        zoneType: event.zoneType, // ← FIX
+        polygonPoints: event.polygonPoints, // ← FIX
+        areaKm2: event.areaKm2, // ← FIX
       );
 
       await _repo.createZone(zone, event.ownerId!);
@@ -114,15 +111,12 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
         message: '"${event.name}" uğurla yaradıldı',
         operation: ZoneOperation.create,
       ));
-      // Stream avtomatik yeniləyəcək
     } catch (e, st) {
       AppLogger.xeta('ZONE BLOC', 'Zona yaratma xətası',
           xetaObyekti: e, yiginIzi: st);
       emit(ZoneError(message: 'Zona yaradılmadı: $e'));
     }
   }
-
-  // ── Yenilə ───────────────────────────────────────────────────────────────
 
   Future<void> _onUpdate(
     UpdateZoneEvent event,
@@ -141,8 +135,6 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
       emit(ZoneError(message: 'Zona yenilənmədi: $e'));
     }
   }
-
-  // ── Sil ──────────────────────────────────────────────────────────────────
 
   Future<void> _onDelete(
     DeleteZoneEvent event,
@@ -166,8 +158,6 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
     }
   }
 
-  // ── Toggle aktiv/deaktiv ─────────────────────────────────────────────────
-
   Future<void> _onToggle(
     ToggleZoneActiveEvent event,
     Emitter<ZoneState> emit,
@@ -179,60 +169,48 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
         orElse: () => throw Exception('Zona tapılmadı'),
       );
       await _repo.updateZone(zone.copyWith(isActive: event.isActive));
-      final lbl = event.isActive ? 'aktivləşdirildi' : 'deaktiv edildi';
+      final lbl = event.isActive ? 'aktivləşdirildi' : 'deaktivləşdirildi';
       emit(ZoneOperationSuccess(
         message: '"${zone.name}" $lbl',
         operation: ZoneOperation.toggle,
       ));
     } catch (e, st) {
-      AppLogger.xeta('ZONE BLOC', 'Toggle xətası',
+      AppLogger.xeta('ZONE BLOC', 'Zona toggle xətası',
           xetaObyekti: e, yiginIzi: st);
-      emit(ZoneError(message: 'Əməliyyat uğursuz oldu: $e'));
+      emit(ZoneError(message: 'Zona statusu dəyişdirilmədi: $e'));
     }
   }
-
-  // ── Heyvan zona yoxlaması ─────────────────────────────────────────────────
 
   Future<void> _onCheckAnimal(
     CheckAnimalInZoneEvent event,
     Emitter<ZoneState> emit,
   ) async {
     try {
-      final active = _zones.where((z) => z.isActive).toList();
+      final activeZones = _zones.where((z) => z.isActive).toList();
       final updated =
-          GeofencingService.updateAnimalStatus(event.location, active);
+          GeofencingService.updateAnimalStatus(event.location, activeZones);
 
-      if (updated.status != event.location.status) {
-        AppLogger.geofenceHadise(
-          event.location.animalName,
-          updated.zoneId ?? 'Naməlum',
-          updated.status == AnimalStatus.inside,
-        );
-      }
-
-      Map<String, dynamic> info = {};
+      String? insideZoneName;
       if (updated.zoneId != null) {
-        final z = active.firstWhere((z) => z.id == updated.zoneId,
-            orElse: () => throw Exception());
-        info = GeofencingService.getZoneInfo(updated, z);
+        try {
+          insideZoneName =
+              activeZones.firstWhere((z) => z.id == updated.zoneId).name;
+        } catch (_) {}
       }
 
       emit(AnimalLocationChecked(
-          location: updated, zoneInfo: info, relevantZones: active));
+        location: updated,
+        zoneInfo: {
+          'isInside': updated.status == AnimalStatus.inside,
+          'zoneName': insideZoneName,
+          'zoneId': updated.zoneId,
+        },
+        relevantZones: activeZones,
+      ));
+
+      emit(ZonesLoaded(List.from(_zones)));
     } catch (e) {
       AppLogger.xeta('ZONE BLOC', 'Zona yoxlama xətası', xetaObyekti: e);
-    }
-  }
-
-  // ── Helpers ──────────────────────────────────────────────────────────────
-
-  List<ZoneEntity> get currentZones => List.unmodifiable(_zones);
-
-  ZoneEntity? findZone(String id) {
-    try {
-      return _zones.firstWhere((z) => z.id == id);
-    } catch (_) {
-      return null;
     }
   }
 
@@ -243,8 +221,10 @@ class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
   }
 }
 
-// Internal event — stream yeniləməsi üçün
+// ── Internal event ─────────────────────────────────────────────────────────
 class _ZonesUpdatedEvent extends ZoneEvent {
   final List<ZoneEntity> zones;
   const _ZonesUpdatedEvent(this.zones);
+  @override
+  List<Object?> get props => [zones];
 }

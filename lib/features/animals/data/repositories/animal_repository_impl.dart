@@ -75,6 +75,15 @@ class AnimalRepositoryImpl implements AnimalRepository {
     await _remote.deleteAnimal(animalId);
   }
 
+  // ── Start / Stop Tracking ─────────────────────────────────────────────────
+
+  @override
+  Future<void> startTracking(String animalId) =>
+      _remote.startTracking(animalId);
+
+  @override
+  Future<void> stopTracking(String animalId) => _remote.stopTracking(animalId);
+
   // ── Location ──────────────────────────────────────────────────────────────
 
   @override

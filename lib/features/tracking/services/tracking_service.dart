@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:meta_tracking/core/logger/app_logger.dart';
@@ -14,23 +15,35 @@ import 'package:meta_tracking/features/zones/presentation/bloc/zone_bloc.dart';
 import 'package:meta_tracking/features/tracking/domain/entities/animal_location.dart';
 import 'package:meta_tracking/features/zones/presentation/state/zone_state.dart';
 
-/// Arxa planda işləyən tracking servisi
-/// AnimalBloc, ZoneBloc, HerdBloc, NotificationBloc ilə əlaqəli
 class TrackingService {
   final BuildContext _context;
   StreamSubscription<Position>? _locationSub;
   bool _isRunning = false;
 
-  // Interval — hər 10 saniyə
   static const _interval = Duration(seconds: 10);
   Timer? _checkTimer;
 
-  // Əvvəlki zona statuslarını yadda saxla (bildiriş spam-ının qarşısını al)
   final Map<String, AnimalZoneStatus> _prevZoneStatus = {};
+
+  // Batareya — platform channel vasitəsilə oxunur
+  static const _batteryChannel =
+      MethodChannel('com.example.meta_tracking/battery');
 
   TrackingService(this._context);
 
   bool get isRunning => _isRunning;
+
+  // ── Telefon batareyasını oxu ───────────────────────────────────────────────
+  // Android BatteryManager vasitəsilə. Xəta olarsa 1.0 qaytarır.
+  static Future<double> _readBatteryLevel() async {
+    try {
+      final int level = await _batteryChannel.invokeMethod('getBatteryLevel');
+      return level / 100.0;
+    } catch (_) {
+      // Platform channel mövcud deyilsə → fallback 1.0
+      return 1.0;
+    }
+  }
 
   // ── Servisı başlat ────────────────────────────────────────────────────────
 
@@ -46,11 +59,10 @@ class TrackingService {
 
     _isRunning = true;
 
-    // GPS stream-i dinlə
     _locationSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // hər 10 metr dəyişiklikdə
+        distanceFilter: 10,
       ),
     ).listen(
       (pos) => _onPositionUpdate(pos),
@@ -59,9 +71,7 @@ class TrackingService {
       },
     );
 
-    // Hər 10 saniyə geofence + naxır yoxlaması
     _checkTimer = Timer.periodic(_interval, (_) => _runChecks());
-
     AppLogger.ugur('TRACKING SERVICE', 'Servis başladı');
   }
 
@@ -76,23 +86,29 @@ class TrackingService {
     AppLogger.xeberdarliq('TRACKING SERVICE', 'Servis dayandırıldı');
   }
 
-  // ── GPS yeniləməsi gəldi ──────────────────────────────────────────────────
+  // ── GPS yeniləməsi ────────────────────────────────────────────────────────
+  // FIX: pos.speed neqativ ola bilər (Android emulator / statik) → max(0, speed)
+  // FIX: batareyani real olaraq oxuyuruq
 
-  void _onPositionUpdate(Position pos) {
+  void _onPositionUpdate(Position pos) async {
     if (!_isRunning) return;
     if (!_context.mounted) return;
 
     final animalState = _context.read<AnimalBloc>().state;
     if (animalState is! AnimalLoaded) return;
 
-    // Yalnız aktiv izlənən heyvanların GPS-ini yenilə
+    // Batareyani bir dəfə oxu (bütün heyvanlar üçün eyni dəyər)
+    final battery = await _readBatteryLevel();
+
+    if (!_context.mounted) return;
+
     for (final animal in animalState.animals.where((a) => a.isTracking)) {
       _context.read<AnimalBloc>().add(UpdateLocationEvent(
             animalId: animal.id,
             lat: pos.latitude,
             lng: pos.longitude,
-            speed: pos.speed,
-            battery: 1.0,
+            speed: pos.speed < 0 ? 0.0 : pos.speed, // ← FIX: negatif speed
+            battery: battery, // ← FIX: real batareya
           ));
     }
   }
@@ -107,11 +123,7 @@ class TrackingService {
     if (animalState is! AnimalLoaded) return;
 
     final animals = animalState.animals;
-
-    // 1. Geofence yoxlaması — hər heyvan üçün zona statusu
     _checkGeofence(animals);
-
-    // 2. Naxır ayrılma yoxlaması
     _checkHerdSeparation(animals);
   }
 
@@ -141,8 +153,6 @@ class TrackingService {
 
       final updated =
           GeofencingService.updateAnimalStatus(location, activeZones);
-
-      // Status dəyişibsə Firestore-a yaz
       final newStatus = _toZoneStatus(updated.status);
 
       if (newStatus != animal.zoneStatus || updated.zoneId != animal.zoneId) {
@@ -161,7 +171,6 @@ class TrackingService {
               zoneName: newZoneName,
             ));
 
-        // ── Keçid bildirişi (yalnız status həqiqətən dəyişibsə) ──────────
         final prevStatus =
             _prevZoneStatus[animal.id] ?? AnimalZoneStatus.outside;
 
@@ -171,14 +180,12 @@ class TrackingService {
 
           AppLogger.geofenceHadise(animal.name, zoneName, entered);
 
-          // Real local bildiriş göstər
           LocalNotificationService().showGeofenceAlert(
             animalName: animal.name,
             zoneName: zoneName,
             entered: entered,
           );
 
-          // Bildiriş Bloc-a da yaz (bildirişlər ekranında görünsün)
           _saveNotificationToBloc(
             animal: animal,
             zoneName: zoneName,
@@ -190,8 +197,6 @@ class TrackingService {
       }
     }
   }
-
-  // ── Bildirişi NotificationBloc-a yaz ────────────────────────────────────
 
   void _saveNotificationToBloc({
     required AnimalEntity animal,
@@ -224,13 +229,9 @@ class TrackingService {
     }
   }
 
-  // ── Naxır ayrılma yoxlama ─────────────────────────────────────────────────
-
   void _checkHerdSeparation(List<AnimalEntity> animals) {
     _context.read<HerdBloc>().add(CheckHerdSeparationEvent(animals));
   }
-
-  // ── GPS icazəsi ───────────────────────────────────────────────────────────
 
   Future<bool> _requestPermission() async {
     LocationPermission p = await Geolocator.checkPermission();
@@ -239,8 +240,6 @@ class TrackingService {
     }
     return p == LocationPermission.whileInUse || p == LocationPermission.always;
   }
-
-  // ── Konversiya helpers ────────────────────────────────────────────────────
 
   AnimalStatus _toAnimalStatus(AnimalZoneStatus s) {
     switch (s) {

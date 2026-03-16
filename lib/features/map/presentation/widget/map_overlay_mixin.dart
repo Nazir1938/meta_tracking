@@ -28,8 +28,8 @@ mixin MapOverlayMixin<T extends StatefulWidget> on State<T> {
       if (p == LocationPermission.denied) {
         p = await Geolocator.requestPermission();
       }
-      if (p != LocationPermission.whileInUse &&
-          p != LocationPermission.always) return;
+      if (p != LocationPermission.whileInUse && p != LocationPermission.always)
+        return;
 
       final pos = await Geolocator.getCurrentPosition(
           locationSettings:
@@ -50,8 +50,7 @@ mixin MapOverlayMixin<T extends StatefulWidget> on State<T> {
             accuracy: LocationAccuracy.high, distanceFilter: 15),
       ).listen((p) {
         if (mounted) {
-          setState(
-              () => currentLocation = LatLng(p.latitude, p.longitude));
+          setState(() => currentLocation = LatLng(p.latitude, p.longitude));
         }
       });
     } catch (e) {
@@ -65,6 +64,9 @@ mixin MapOverlayMixin<T extends StatefulWidget> on State<T> {
   }
 
   // ── Overlay-ları yenilə ───────────────────────────────────────────────────
+  // FIX: 'fh-' prefiksi ilə başlayan müvəqqəti polygon-lar da təmizlənir,
+  // əks halda hər rebuild-də köhnə polygon üst-üstə qalırdı.
+
   void rebuildOverlays(
     List<ZoneEntity> zones,
     List<AnimalEntity>? animalEntities,
@@ -75,6 +77,8 @@ mixin MapOverlayMixin<T extends StatefulWidget> on State<T> {
     circles.clear();
     polygons.removeWhere((p) =>
         p.polygonId.value.startsWith('zone-poly-') ||
+        p.polygonId.value
+            .startsWith('fh-') || // ← FIX: müvəqqəti fh-* polygon-ları sil
         p.polygonId.value == '__fh_preview__');
     markers.removeWhere((m) =>
         m.markerId.value.startsWith('zone-') ||
@@ -91,6 +95,7 @@ mixin MapOverlayMixin<T extends StatefulWidget> on State<T> {
     final color = zone.isActive ? const Color(0xFF1D9E75) : Colors.grey;
 
     if (zone.zoneType == ZoneType.polygon && zone.polygonPoints.length >= 3) {
+      // Polygon zona — çəkildiyi kimi göstər
       final gPoints = zone.polygonPoints
           .map((p) => LatLng(p.latitude, p.longitude))
           .toList();
@@ -103,6 +108,7 @@ mixin MapOverlayMixin<T extends StatefulWidget> on State<T> {
         onTap: () => onTap(zone),
       ));
     } else {
+      // Dairə zona
       circles.add(Circle(
         circleId: CircleId('zone-circle-${zone.id}'),
         center: LatLng(zone.latitude, zone.longitude),
@@ -125,9 +131,6 @@ mixin MapOverlayMixin<T extends StatefulWidget> on State<T> {
     ));
   }
 
-  /// Heyvan markerları.
-  /// [onAnimalTap] — heyvanın hansı erazidə olduğunu göstərmək üçün
-  /// xəritədən offline olaraq zone sheet açır.
   void rebuildAnimalMarkers(
     List<AnimalEntity>? animalEntities,
     List<String>? highlightedIds,
@@ -136,7 +139,6 @@ mixin MapOverlayMixin<T extends StatefulWidget> on State<T> {
     if (animalEntities == null) return;
 
     for (final a in animalEntities) {
-      // GPS koordinatı olan heyvanlar → xəritədə markerla göstər
       if (a.lastLatitude != null && a.lastLongitude != null) {
         final hl = highlightedIds?.contains(a.id) ?? false;
         markers.add(Marker(
@@ -145,14 +147,8 @@ mixin MapOverlayMixin<T extends StatefulWidget> on State<T> {
           icon: BitmapDescriptor.defaultMarkerWithHue(
               hl ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueOrange),
           onTap: () => onAnimalTap(a),
-          infoWindow: InfoWindow.noText, // Tap ilə sheet açır
+          infoWindow: InfoWindow.noText,
         ));
-      }
-      // GPS yoxdur amma zona var → zona mərkəzinə kiçik marker
-      else if (a.zoneId != null && a.zoneName != null) {
-        // Bu marker zona mərkəzinə yaxın göstərilir — sadəcə visual hint
-        // Zone marker ilə üst-üstə düşməmək üçün burada göstərmirik,
-        // ZoneAnimalSheet tab-ında görünəcək
       }
     }
   }

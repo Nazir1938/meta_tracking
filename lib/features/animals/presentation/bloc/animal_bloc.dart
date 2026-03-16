@@ -16,7 +16,6 @@ abstract class AnimalEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Heyvanları Firestore-dan real-time dinlə
 class WatchAnimalsEvent extends AnimalEvent {
   final String ownerId;
   const WatchAnimalsEvent(this.ownerId);
@@ -24,7 +23,6 @@ class WatchAnimalsEvent extends AnimalEvent {
   List<Object?> get props => [ownerId];
 }
 
-/// Yeni heyvan əlavə et
 class AddAnimalEvent extends AnimalEvent {
   final String name;
   final AnimalType type;
@@ -48,7 +46,6 @@ class AddAnimalEvent extends AnimalEvent {
   List<Object?> get props => [name, type, ownerId];
 }
 
-/// Mövcud heyvanı redaktə et
 class EditAnimalEvent extends AnimalEvent {
   final String animalId;
   final String name;
@@ -72,7 +69,6 @@ class EditAnimalEvent extends AnimalEvent {
   List<Object?> get props => [animalId, name, type];
 }
 
-/// Heyvanı sil
 class DeleteAnimalEvent extends AnimalEvent {
   final String animalId;
   const DeleteAnimalEvent(this.animalId);
@@ -80,7 +76,22 @@ class DeleteAnimalEvent extends AnimalEvent {
   List<Object?> get props => [animalId];
 }
 
-/// GPS mövqeyini yenilə (Realtime DB)
+/// GPS izləməni Firestore-da aktiv et (isTracking = true)
+class StartTrackingEvent extends AnimalEvent {
+  final String animalId;
+  const StartTrackingEvent(this.animalId);
+  @override
+  List<Object?> get props => [animalId];
+}
+
+/// GPS izləməni Firestore-da dayandır (isTracking = false)
+class StopTrackingEvent extends AnimalEvent {
+  final String animalId;
+  const StopTrackingEvent(this.animalId);
+  @override
+  List<Object?> get props => [animalId];
+}
+
 class UpdateLocationEvent extends AnimalEvent {
   final String animalId;
   final double lat;
@@ -100,7 +111,6 @@ class UpdateLocationEvent extends AnimalEvent {
   List<Object?> get props => [animalId, lat, lng];
 }
 
-/// Geofence nəticəsini Firestore-a yaz
 class UpdateZoneStatusEvent extends AnimalEvent {
   final String animalId;
   final AnimalZoneStatus status;
@@ -139,7 +149,6 @@ class AnimalLoading extends AnimalState {
 class AnimalLoaded extends AnimalState {
   final List<AnimalEntity> animals;
   const AnimalLoaded(this.animals);
-
   @override
   List<Object?> get props => [animals];
 }
@@ -173,6 +182,8 @@ class AnimalBloc extends Bloc<AnimalEvent, AnimalState> {
     on<AddAnimalEvent>(_onAdd);
     on<EditAnimalEvent>(_onEdit);
     on<DeleteAnimalEvent>(_onDelete);
+    on<StartTrackingEvent>(_onStartTracking);
+    on<StopTrackingEvent>(_onStopTracking);
     on<UpdateLocationEvent>(_onUpdateLocation);
     on<UpdateZoneStatusEvent>(_onUpdateZoneStatus);
   }
@@ -265,6 +276,32 @@ class AnimalBloc extends Bloc<AnimalEvent, AnimalState> {
     }
   }
 
+  // ── Start Tracking ────────────────────────────────────────────────────────
+
+  Future<void> _onStartTracking(
+      StartTrackingEvent event, Emitter<AnimalState> emit) async {
+    AppLogger.blocHadise('AnimalBloc', 'StartTrackingEvent: ${event.animalId}');
+    try {
+      await _repo.startTracking(event.animalId);
+      AppLogger.ugur('ANIMAL BLOC', 'İzləmə başladı: ${event.animalId}');
+    } catch (e) {
+      AppLogger.xeta('ANIMAL BLOC', 'İzləmə başlatma xətası', xetaObyekti: e);
+    }
+  }
+
+  // ── Stop Tracking ─────────────────────────────────────────────────────────
+
+  Future<void> _onStopTracking(
+      StopTrackingEvent event, Emitter<AnimalState> emit) async {
+    AppLogger.blocHadise('AnimalBloc', 'StopTrackingEvent: ${event.animalId}');
+    try {
+      await _repo.stopTracking(event.animalId);
+      AppLogger.ugur('ANIMAL BLOC', 'İzləmə dayandırıldı: ${event.animalId}');
+    } catch (e) {
+      AppLogger.xeta('ANIMAL BLOC', 'İzləmə dayandırma xətası', xetaObyekti: e);
+    }
+  }
+
   // ── Update Location ───────────────────────────────────────────────────────
 
   Future<void> _onUpdateLocation(
@@ -278,7 +315,6 @@ class AnimalBloc extends Bloc<AnimalEvent, AnimalState> {
         event.battery,
       );
     } catch (e) {
-      // GPS xətaları UI-ı bloklamasın — sadəcə log et
       AppLogger.xeta('ANIMAL BLOC', 'Mövqe yeniləmə xətası', xetaObyekti: e);
     }
   }
